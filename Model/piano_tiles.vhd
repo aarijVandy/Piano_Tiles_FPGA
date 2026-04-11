@@ -12,6 +12,7 @@ USE work.game_pkg.ALL;
 ENTITY note_lane IS
 	PORT (
 		clk : IN STD_LOGIC;
+		reset_game : IN STD_LOGIC;
 		shift_notes : IN STD_LOGIC;
 		add_note : IN STD_LOGIC;
 		clear_bottom : IN STD_LOGIC;
@@ -26,7 +27,10 @@ BEGIN
 		VARIABLE next_notes : STD_LOGIC_VECTOR(NOTE_COUNT - 1 DOWNTO 0);
 	BEGIN
 		IF rising_edge(clk) THEN
-			next_notes := notes; -- Default to hold current value
+			IF reset_game = '1' THEN
+				notes <= (OTHERS => '0');
+			ELSE
+				next_notes := notes; -- Default to hold current value
 
 			IF shift_notes = '1' THEN
 				-- move notes down one position (0 -> 1 -> 2 ... -> 7)
@@ -43,7 +47,8 @@ BEGIN
 				next_notes(NOTE_COUNT - 1) := '0';
 			END IF;
 
-			notes <= next_notes;
+				notes <= next_notes;
+			END IF;
 		END IF;
 	END PROCESS;
 
@@ -58,6 +63,7 @@ USE work.game_pkg.ALL;
 ENTITY note_stage IS
 	PORT (
 		game_tick : IN STD_LOGIC;
+		reset_game : IN STD_LOGIC;
 
 		-- one button per lane
 		buttons : IN STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0);
@@ -67,6 +73,9 @@ ENTITY note_stage IS
 
 		-- current score
 		score : OUT INTEGER;
+
+		-- current max score
+		max_score : OUT INTEGER;
 
 		-- sub-note offset for rendering
 		note_offset : OUT INTEGER RANGE 0 TO NOTE_HEIGHT
@@ -79,6 +88,7 @@ ARCHITECTURE rtl OF note_stage IS
 	COMPONENT note_lane IS
 		PORT (
 			clk : IN STD_LOGIC;
+			reset_game : IN STD_LOGIC;
 			shift_notes : IN STD_LOGIC;
 			add_note : IN STD_LOGIC;
 			clear_bottom : IN STD_LOGIC;
@@ -115,6 +125,7 @@ ARCHITECTURE rtl OF note_stage IS
 
 	-- score register
 	SIGNAL score_signal : INTEGER := 0;
+	SIGNAL max_score_sig : INTEGER := 0;
 
 	-- random lane selection (32-bit LFSR output)
 	SIGNAL rand_lane_bits : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
@@ -125,6 +136,7 @@ BEGIN
 	lane0_inst : note_lane
 		PORT MAP(
 			clk => game_tick,
+			reset_game => reset_game,
 			shift_notes => shift_notes_sig,
 			add_note => add_note_sig(0),
 			clear_bottom => clear_bottom_sig(0),
@@ -134,6 +146,7 @@ BEGIN
 	lane1_inst : note_lane
 		PORT MAP(
 			clk => game_tick,
+			reset_game => reset_game,
 			shift_notes => shift_notes_sig,
 			add_note => add_note_sig(1),
 			clear_bottom => clear_bottom_sig(1),
@@ -143,6 +156,7 @@ BEGIN
 	lane2_inst : note_lane
 		PORT MAP(
 			clk => game_tick,
+			reset_game => reset_game,
 			shift_notes => shift_notes_sig,
 			add_note => add_note_sig(2),
 			clear_bottom => clear_bottom_sig(2),
@@ -152,6 +166,7 @@ BEGIN
 	lane3_inst : note_lane
 		PORT MAP(
 			clk => game_tick,
+			reset_game => reset_game,
 			shift_notes => shift_notes_sig,
 			add_note => add_note_sig(3),
 			clear_bottom => clear_bottom_sig(3),
@@ -172,25 +187,31 @@ BEGIN
 		VARIABLE score_next : INTEGER;
 		VARIABLE button_pressed_next : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0);
 	BEGIN
-		IF rising_edge(game_tick) AND score_signal >= 0 THEN
+		IF rising_edge(game_tick) THEN
 			-- default: pulses are low unless asserted this cycle
 			shift_notes_sig <= '0';
 			add_note_sig <= (OTHERS => '0');
 			clear_bottom_sig <= (OTHERS => '0');
 
-			score_next := score_signal;
-			button_pressed_next := button_pressed_sig;
+			IF reset_game = '1' THEN
+				score_signal <= 0;
+				tick_count <= 0;
+				button_pressed_sig <= (OTHERS => '0');
+			ELSE
+				IF score_signal >= 0 THEN
+					score_next := score_signal;
+					button_pressed_next := button_pressed_sig;
 
-			-- check for scoring
-			FOR i IN 0 TO LANE_COUNT - 1 LOOP
-				-- each lane can only score/penalize once per note cycle
-				IF buttons(i) = '1' AND button_pressed_sig(i) = '0' THEN
-					button_pressed_next(i) := '1';
+					-- check for scoring
+					FOR i IN 0 TO LANE_COUNT - 1 LOOP
+						-- each lane can only score/penalize once per note cycle
+						IF buttons(i) = '1' AND button_pressed_sig(i) = '0' THEN
+							button_pressed_next(i) := '1';
 
-					-- note is in the bottom buffer zone
-					IF notes_matrix_sig(i)(NOTE_COUNT - 1) = '1' THEN
-						-- score increases by how close the note is to the bottom
-						score_next := score_next + NOTE_HEIGHT - tick_count;
+							-- note is in the bottom buffer zone
+							IF notes_matrix_sig(i)(NOTE_COUNT - 1) = '1' THEN
+								-- score increases by how close the note is to the bottom
+								score_next := score_next + NOTE_HEIGHT - tick_count;
 
 						-- tell the lane to erase the note so it can't be scored again
 						clear_bottom_sig(i) <= '1';
@@ -200,6 +221,10 @@ BEGIN
 					END IF;
 				END IF;
 			END LOOP;
+
+						IF score_signal > max_score_sig THEN
+							max_score_sig <= score_signal;
+						END IF;
 
 			IF tick_count = NOTE_HEIGHT THEN
 				-- note_lane is acting on shift_notes_sig='1' this cycle (asserted last cycle);
@@ -224,13 +249,16 @@ BEGIN
 				button_pressed_sig <= button_pressed_next;
 			END IF;
 
-			score_signal <= score_next;
+					score_signal <= score_next;
+				END IF;
+			END IF;
 		END IF;
 	END PROCESS;
 
 	-- Outputs
 	notes_matrix <= notes_matrix_sig;
 	score <= score_signal;
+	max_score <= max_score_sig;
 	note_offset <= tick_count;
 
 END ARCHITECTURE;
