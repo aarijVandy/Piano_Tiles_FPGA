@@ -144,7 +144,7 @@ BEGIN
         -- Main control process
         PROCESS (game_tick)
         BEGIN
-                IF rising_edge(game_tick) THEN
+                IF rising_edge(game_tick) and score_signal >= 0 THEN
                         -- default: pulses are low unless asserted this cycle
                         shift_notes_sig <= '0';
                         add_note_sig <= (OTHERS => '0');
@@ -163,7 +163,7 @@ BEGIN
 
 								IF buttons(i) = '1' AND notes_matrix_sig(i)(NOTE_COUNT - 1) = '0' THEN
 									-- penalize for pressing when no note is there
-									score_signal <= score_signal - 20;
+									score_signal <= score_signal - 120;
 								END IF;
                         END LOOP;
 
