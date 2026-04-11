@@ -121,6 +121,20 @@ ARCHITECTURE structural OF DE2_115_TOP IS
 	SIGNAL score : INTEGER;
 	SIGNAL note_offset : INTEGER RANGE 0 TO NOTE_HEIGHT;
 
+        -- VGA Signals
+        SIGNAL red_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
+        SIGNAL green_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
+        SIGNAL blue_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
+        SIGNAL vga_r_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
+        SIGNAL vga_g_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
+        SIGNAL vga_b_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
+        SIGNAL video_on_int : STD_LOGIC;
+        SIGNAL vert_sync_int : STD_LOGIC;
+        SIGNAL horiz_sync_int : STD_LOGIC;
+        SIGNAL pixel_clock_int : STD_LOGIC;
+        SIGNAL pixel_row_int : STD_LOGIC_VECTOR(10 DOWNTO 0);
+        SIGNAL pixel_column_int : STD_LOGIC_VECTOR(10 DOWNTO 0);
+
 	-- Score display signals (convert to BCD)
 	SIGNAL score_ones : STD_LOGIC_VECTOR(3 DOWNTO 0);
 	SIGNAL score_tens : STD_LOGIC_VECTOR(3 DOWNTO 0);
@@ -261,76 +275,42 @@ BEGIN
 	LCD_RW <= '1';
 	AUD_XCK <= '0';
 
+	-- VGA Logic
+	VGA_HS <= horiz_sync_int;
+	VGA_VS <= vert_sync_int;
+	VGA_R <= vga_r_int;
+	VGA_G <= vga_g_int;
+	VGA_B <= vga_b_int;
+	VGA_CLK <= pixel_clock_int;
+	VGA_BLANK_N <= video_on_int;
+
+	U1 : ENTITY work.VGA_SYNC_module PORT MAP
+	(
+		clock_50Mhz => CLOCK_50,
+		red => red_int,
+		green => green_int,
+		blue => blue_int,
+		red_out => vga_r_int,
+		green_out => vga_g_int,
+		blue_out => vga_b_int,
+		horiz_sync_out => horiz_sync_int,
+		vert_sync_out => vert_sync_int,
+		video_on => video_on_int,
+		pixel_clock => pixel_clock_int,
+		pixel_row => pixel_row_int,
+		pixel_column => pixel_column_int
+	);
+
+	U2 : ENTITY work.tile_renderer PORT MAP
+	(
+		pixel_row => pixel_row_int,
+		pixel_column => pixel_column_int,
+		notes_matrix => notes_matrix,
+		note_offset => note_offset,
+		Red => red_int,
+		Green => green_int,
+		Blue => blue_int,
+		video_on => video_on_int
+	);
+
 END structural;
-
--- Architecture body
--- 		Describes the functionality or internal implementation of the entity
-
--- ARCHITECTURE structural OF DE2_115_TOP IS
-
--- 	COMPONENT VGA_SYNC_module
-
--- 		PORT (
--- 			clock_50Mhz : IN STD_LOGIC;
--- 			red, green, blue : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
--- 			red_out, green_out, blue_out : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
--- 			horiz_sync_out, vert_sync_out, video_on, pixel_clock : OUT STD_LOGIC;
--- 			pixel_row, pixel_column : OUT STD_LOGIC_VECTOR(10 DOWNTO 0));
-
--- 	END COMPONENT;
-
--- 	COMPONENT ball
-
--- 		PORT (
--- 			pixel_row, pixel_column : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
--- 			Red, Green, Blue : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
--- 			Vert_sync : IN STD_LOGIC);
--- 	END COMPONENT;
-
--- 	SIGNAL red_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
--- 	SIGNAL green_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
--- 	SIGNAL blue_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
--- 	SIGNAL vga_r_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
--- 	SIGNAL vga_g_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
--- 	SIGNAL vga_b_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
--- 	SIGNAL video_on_int : STD_LOGIC;
--- 	SIGNAL vert_sync_int : STD_LOGIC;
--- 	SIGNAL horiz_sync_int : STD_LOGIC;
--- 	SIGNAL pixel_clock_int : STD_LOGIC;
--- 	SIGNAL pixel_row_int : STD_LOGIC_VECTOR(10 DOWNTO 0);
--- 	SIGNAL pixel_column_int : STD_LOGIC_VECTOR(10 DOWNTO 0);
--- BEGIN
-
--- 	VGA_HS <= horiz_sync_int;
--- 	VGA_VS <= vert_sync_int;
--- 	VGA_R <= vga_r_int;
--- 	VGA_G <= vga_g_int;
--- 	VGA_B <= vga_b_int;
-
--- 	U1 : VGA_SYNC_module PORT MAP
--- 	(
--- 		clock_50Mhz => CLOCK_50,
--- 		red => red_int,
--- 		green => green_int,
--- 		blue => blue_int,
--- 		red_out => vga_r_int,
--- 		green_out => vga_g_int,
--- 		blue_out => vga_b_int,
--- 		horiz_sync_out => horiz_sync_int,
--- 		vert_sync_out => vert_sync_int,
--- 		video_on => VGA_BLANK_N,
--- 		pixel_clock => VGA_CLK,
--- 		pixel_row => pixel_row_int,
--- 		pixel_column => pixel_column_int
--- 	);
-
--- 	U2 : ball PORT MAP
--- 	(
--- 		pixel_row => pixel_row_int,
--- 		pixel_column => pixel_column_int,
--- 		Red => red_int,
--- 		Green => green_int,
--- 		Blue => blue_int,
--- 		Vert_sync => vert_sync_int
--- 	);
--- END structural;

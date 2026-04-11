@@ -86,9 +86,9 @@ ARCHITECTURE rtl OF note_stage IS
 	SIGNAL score_signal : INTEGER := 0;
 
 	-- random lane selection
-	SIGNAL rand_lane_bits : STD_LOGIC_VECTOR(1 DOWNTO 0) := (OTHERS => '0');
-	SIGNAL next_note : INTEGER RANGE 0 TO LANE_COUNT - 1 := 0;
-	SIGNAL note_scored : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
+        SIGNAL rand_lane_bits : STD_LOGIC_VECTOR(3 DOWNTO 0) := (OTHERS => '0');
+        SIGNAL note_scored : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
+
 
 BEGIN
 
@@ -135,8 +135,6 @@ BEGIN
 			rand_out => rand_lane_bits
 		);
 
-	-- convert 2-bit random output into lane number 0..3
-	next_note <= to_integer(unsigned(rand_lane_bits));
 
 	-- Main control process
 	PROCESS (game_tick)
@@ -158,7 +156,7 @@ BEGIN
 
 			IF tick_count = NOTE_HEIGHT THEN
 				shift_notes_sig <= '1'; -- shift notes down
-				add_note_sig(next_note) <= '1'; -- add new note to random lane
+				add_note_sig <= rand_lane_bits; -- add new note to random lane
 				tick_count <= 0; -- reset tick count
 			ELSE
 				tick_count <= tick_count + 1;
