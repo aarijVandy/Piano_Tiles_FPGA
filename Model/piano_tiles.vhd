@@ -91,7 +91,7 @@ ARCHITECTURE rtl OF note_stage IS
 	SIGNAL score_signal : INTEGER := 0;
 
 	-- random lane selection
-        SIGNAL rand_lane_bits : STD_LOGIC_VECTOR(3 DOWNTO 0) := (OTHERS => '0');
+	SIGNAL rand_lane_bits : STD_LOGIC_VECTOR(3 DOWNTO 0) := (OTHERS => '0');
 
 BEGIN
 
@@ -134,12 +134,12 @@ BEGIN
 
         -- Randomizer instance
         randomizer_inst : ENTITY work.randomizer
-                PORT MAP(
-                        clk => game_tick,
-                        reset => '0',
-                        enable => shift_notes_sig,
-                        rand_out => rand_lane_bits
-                );
+			PORT MAP(
+					clk => game_tick,
+					reset => '0',
+					enable => '1',
+					rand_out => rand_lane_bits
+			);
 
         -- Main control process
         PROCESS (game_tick)
