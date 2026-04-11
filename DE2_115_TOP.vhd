@@ -382,10 +382,30 @@ BEGIN
 			notes_matrix => notes_matrix,
 			hit_matrix   => hit_matrix,
 			note_offset  => note_offset,
-			Red          => red_int,
-			Green        => green_int,
-			Blue         => blue_int,
+			Red          => tile_r,
+			Green        => tile_g,
+			Blue         => tile_b,
 			video_on     => video_on_int
+		);
+
+	vga_score_display_inst : ENTITY work.vga_score_display
+		PORT MAP(
+			pixel_row => pixel_row_int,
+			pixel_column => pixel_column_int,
+			score_ones => score_ones,
+			score_tens => score_tens,
+			score_hundreds => score_hundreds,
+			score_thousands => score_thousands,
+			max_ones => max_ones,
+			max_tens => max_tens,
+			max_hundreds => max_hundreds,
+			max_thousands => max_thousands,
+			red_in => tile_r,
+			green_in => tile_g,
+			blue_in => tile_b,
+			red_out => red_int,
+			green_out => green_int,
+			blue_out => blue_int
 		);
 
 END structural;
