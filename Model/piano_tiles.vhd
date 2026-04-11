@@ -210,8 +210,8 @@ BEGIN
 			mark_bottom_hit_sig <= (OTHERS => '0');
 
 			IF reset_game = '1' THEN
-				score_signal <= 0;
-				tick_count <= 0;
+				score_signal <= 25;
+				tick_count <= 0;	
 				button_pressed_sig <= (OTHERS => '0');
 			ELSIF score_signal > 0 THEN
 				score_next := score_signal;

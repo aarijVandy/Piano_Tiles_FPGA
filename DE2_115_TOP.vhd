@@ -164,7 +164,7 @@ ARCHITECTURE structural OF DE2_115_TOP IS
 	SIGNAL notes_matrix : note_matrix_t;
 	SIGNAL hit_matrix : note_matrix_t;
 	SIGNAL score : INTEGER;
-	SIGNAL best_score : INTEGER := 0;
+	SIGNAL best_score : INTEGER := 25;
 	SIGNAL note_offset : INTEGER RANGE 0 TO NOTE_HEIGHT;
 	SIGNAL reset_game_tick : STD_LOGIC := '0';
 	SIGNAL reset_pending : STD_LOGIC := '0';
@@ -227,13 +227,13 @@ BEGIN
 		END IF;
 	END PROCESS;
 
-	buttons_debounced(0) <= '1' WHEN KEY(0) = '0' ELSE
+	buttons_debounced(3) <= '1' WHEN KEY(0) = '0' ELSE
 	'0'; -- Active-low buttons
-	buttons_debounced(1) <= '1' WHEN KEY(1) = '0' ELSE
+	buttons_debounced(2) <= '1' WHEN KEY(1) = '0' ELSE
 	'0';
-	buttons_debounced(2) <= '1' WHEN KEY(2) = '0' ELSE
+	buttons_debounced(1) <= '1' WHEN KEY(2) = '0' ELSE
 	'0';
-	buttons_debounced(3) <= '1' WHEN KEY(3) = '0' ELSE
+	buttons_debounced(0) <= '1' WHEN KEY(3) = '0' ELSE
 	'0';
 
 	-- debounce0 : ENTITY work.key_debounce
