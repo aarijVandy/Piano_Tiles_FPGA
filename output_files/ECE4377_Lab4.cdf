@@ -4,7 +4,7 @@ JedecChain;
 	DefaultMfr(6E);
 
 	P ActionCode(Cfg)
-		Device PartName(EP4CE115F29) Path("D:/school/lab-4-fpga-wala/output_files/") File("ECE4377_Lab4.sof") MfrSpec(OpMask(1));
+		Device PartName(EP4CE115F29) Path("C:/Users/benit/Desktop/Temporary desktop/Classes/Spring 2026/FPGA/Final project/Piano_Tiles_FPGA/output_files/") File("ECE4377_Lab4.sof") MfrSpec(OpMask(1));
 
 ChainEnd;
 
