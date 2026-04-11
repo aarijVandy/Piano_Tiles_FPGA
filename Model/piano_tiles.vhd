@@ -2,6 +2,7 @@
 -- We will have 4 lanes with notes on our screen, each lane can hold up to 8 notes at a time
 -- each pulse cycle, the notes will move down the screen, and if a note is added to a lane, it will start at the top of the screen
 -- when the note reaches the bottom of the screen, if the corresponding button is pressed, then the player gets a point
+
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
 USE ieee.numeric_std.ALL;
@@ -48,6 +49,7 @@ BEGIN
 
 	notes_out <= notes;
 END ARCHITECTURE;
+
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
 USE ieee.numeric_std.ALL;
@@ -83,6 +85,9 @@ ARCHITECTURE rtl OF note_stage IS
 
 	-- clear bottom pulse per lane
 	SIGNAL clear_bottom_sig : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
+
+	-- tracks whether each lane button has already been scored this note cycle
+	SIGNAL button_pressed_sig : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
 
 	-- counts game ticks between note shifts
 	SIGNAL tick_count : INTEGER RANGE 0 TO NOTE_HEIGHT := 0;
@@ -143,6 +148,8 @@ BEGIN
 
 	-- Main control process
 	PROCESS (game_tick)
+		VARIABLE score_next : INTEGER;
+		VARIABLE button_pressed_next : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0);
 	BEGIN
 		IF rising_edge(game_tick) AND score_signal >= 0 THEN
 			-- default: pulses are low unless asserted this cycle
@@ -150,20 +157,26 @@ BEGIN
 			add_note_sig <= (OTHERS => '0');
 			clear_bottom_sig <= (OTHERS => '0');
 
+			score_next := score_signal;
+			button_pressed_next := button_pressed_sig;
+
 			-- check for scoring (note_matrix_sig represents the state)
 			FOR i IN 0 TO LANE_COUNT - 1 LOOP
-				-- note is in the bottom buffer zone
-				IF buttons(i) = '1' AND notes_matrix_sig(i)(NOTE_COUNT - 1) = '1' THEN
-					-- score increases by how close the note is to the bottom
-					score_signal <= score_signal + NOTE_HEIGHT - tick_count;
+				-- each lane can only score/penalize once per note cycle
+				IF buttons(i) = '1' AND button_pressed_sig(i) = '0' THEN
+					button_pressed_next(i) := '1';
 
-					-- tell the lane to erase the note so it can't be scored again
-					clear_bottom_sig(i) <= '1';
-				END IF;
+					-- note is in the bottom buffer zone
+					IF notes_matrix_sig(i)(NOTE_COUNT - 1) = '1' THEN
+						-- score increases by how close the note is to the bottom
+						score_next := score_next + NOTE_HEIGHT - tick_count;
 
-				IF buttons(i) = '1' AND notes_matrix_sig(i)(NOTE_COUNT - 1) = '0' THEN
-					-- penalize for pressing when no note is there
-					score_signal <= score_signal - 120;
+						-- tell the lane to erase the note so it can't be scored again
+						clear_bottom_sig(i) <= '1';
+					ELSE
+						-- penalize for pressing when no note is there
+						score_next := score_next - 120;
+					END IF;
 				END IF;
 			END LOOP;
 
@@ -171,9 +184,13 @@ BEGIN
 				shift_notes_sig <= '1'; -- shift notes down
 				add_note_sig <= rand_lane_bits; -- add new note to random lane
 				tick_count <= 0; -- reset tick count
+				button_pressed_sig <= (OTHERS => '0');
 			ELSE
 				tick_count <= tick_count + 1;
+				button_pressed_sig <= button_pressed_next;
 			END IF;
+
+			score_signal <= score_next;
 		END IF;
 	END PROCESS;
 
