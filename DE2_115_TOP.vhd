@@ -258,11 +258,11 @@ BEGIN
 			seg => HEX3
 		);
 
-	HEX4 <= (OTHERS => '0'); -- Turn off
+	HEX4 <= (OTHERS => '1'); -- Turn off
 	HEX5 <= (OTHERS => '1'); -- Turn off
 	HEX6 <= (OTHERS => '1'); -- Turn off
 	HEX7 <= (OTHERS => '1'); -- Turn off
-	LEDR <= (OTHERS => '1'); -- Unused
+	LEDR <= (OTHERS => '0'); -- Unused
 
 	-- Other board outputs (tie off if not used)
 	UART_TXD <= '0';
