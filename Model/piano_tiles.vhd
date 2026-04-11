@@ -117,8 +117,8 @@ ARCHITECTURE rtl OF note_stage IS
 	SIGNAL tick_count : INTEGER RANGE 0 TO NOTE_HEIGHT := 0;
 
 	-- score register
-	SIGNAL score_signal : INTEGER := 0;
-	SIGNAL max_score_sig : INTEGER := 0;
+	SIGNAL score_signal : INTEGER := 25;
+	SIGNAL max_score_sig : INTEGER := 25;
 
 	-- random lane selection (32-bit LFSR output)
 	SIGNAL rand_lane_bits : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
