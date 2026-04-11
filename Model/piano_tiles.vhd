@@ -213,7 +213,7 @@ BEGIN
 				score_signal <= 0;
 				tick_count <= 0;
 				button_pressed_sig <= (OTHERS => '0');
-			ELSE IF score_signal >= 0 THEN
+			ELSE IF score_signal > 0 THEN
 				score_next := score_signal;
 				button_pressed_next := button_pressed_sig;
 
@@ -263,6 +263,10 @@ BEGIN
 					tick_count <= tick_count + 1;
 					button_pressed_sig <= button_pressed_next;
 				END IF;
+
+				if scoore_next < 0 then
+					score_next := 0;
+				end if;
 
 				score_signal <= score_next;
 			END IF;
