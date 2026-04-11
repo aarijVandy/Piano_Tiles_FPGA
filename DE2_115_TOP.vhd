@@ -174,6 +174,9 @@ ARCHITECTURE structural OF DE2_115_TOP IS
         SIGNAL red_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
         SIGNAL green_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
         SIGNAL blue_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
+        SIGNAL tile_r : STD_LOGIC_VECTOR(7 DOWNTO 0);
+        SIGNAL tile_g : STD_LOGIC_VECTOR(7 DOWNTO 0);
+        SIGNAL tile_b : STD_LOGIC_VECTOR(7 DOWNTO 0);
         SIGNAL vga_r_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
         SIGNAL vga_g_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
         SIGNAL vga_b_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
@@ -382,10 +385,31 @@ BEGIN
 			notes_matrix => notes_matrix,
 			hit_matrix   => hit_matrix,
 			note_offset  => note_offset,
-			Red          => red_int,
-			Green        => green_int,
-			Blue         => blue_int,
+			Red          => tile_r,
+			Green        => tile_g,
+			Blue         => tile_b,
 			video_on     => video_on_int
+		);
+
+	vga_score_display_inst : ENTITY work.vga_score_display
+		PORT MAP(
+			clk => pixel_clock_int,
+			pixel_row => pixel_row_int,
+			pixel_column => pixel_column_int,
+			score_ones => score_ones,
+			score_tens => score_tens,
+			score_hundreds => score_hundreds,
+			score_thousands => score_thousands,
+			max_ones => max_ones,
+			max_tens => max_tens,
+			max_hundreds => max_hundreds,
+			max_thousands => max_thousands,
+			red_in => tile_r,
+			green_in => tile_g,
+			blue_in => tile_b,
+			red_out => red_int,
+			green_out => green_int,
+			blue_out => blue_int
 		);
 
 END structural;
