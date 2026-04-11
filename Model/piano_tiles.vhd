@@ -13,6 +13,7 @@ ENTITY note_lane IS
 		clk : IN STD_LOGIC;
 		shift_notes : IN STD_LOGIC;
 		add_note : IN STD_LOGIC;
+		clear_bottom: IN STD_LOGIC
 		notes_out : OUT STD_LOGIC_VECTOR(NOTE_COUNT - 1 DOWNTO 0)
 	);
 END ENTITY;
@@ -20,23 +21,30 @@ END ENTITY;
 ARCHITECTURE rtl OF note_lane IS
 	SIGNAL notes : STD_LOGIC_VECTOR(NOTE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
 BEGIN
-	PROCESS (clk)
-		VARIABLE next_notes : STD_LOGIC_VECTOR(NOTE_COUNT - 1 DOWNTO 0);
-	BEGIN
-		IF rising_edge(clk) THEN
-			IF shift_notes = '1' THEN
-				-- move notes down one position
-				next_notes := '0' & notes(NOTE_COUNT - 1 DOWNTO 1);
+        PROCESS (clk)
+                VARIABLE next_notes : STD_LOGIC_VECTOR(NOTE_COUNT - 1 DOWNTO 0);
+        BEGIN
+                IF rising_edge(clk) THEN
+                        next_notes := notes; -- Default to hold current value
+                        
+                        IF shift_notes = '1' THEN
+                                -- move notes down one position (0 -> 1 -> 2 ... -> 7)
+                                next_notes := next_notes(NOTE_COUNT - 2 DOWNTO 0) & '0';
+                                
+                                -- add a new note at the top if requested
+                                IF add_note = '1' THEN
+                                        next_notes(0) := '1';
+                                END IF;
+                        END IF;
 
-				-- add a new note at the top if requested
-				IF add_note = '1' THEN
-					next_notes(0) := '1';
-				END IF;
+                        -- Instantly clear the bottom tile if scored
+                        IF clear_bottom = '1' THEN
+                                next_notes(NOTE_COUNT - 1) := '0';
+                        END IF;
 
-				notes <= next_notes;
-			END IF;
-		END IF;
-	END PROCESS;
+                        notes <= next_notes;
+                END IF;
+        END PROCESS;
 
 	notes_out <= notes;
 END ARCHITECTURE;
@@ -44,12 +52,6 @@ LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
 USE ieee.numeric_std.ALL;
 USE work.game_pkg.ALL;
-
--- now we need to create a note_stage for each of the 4 lanes
--- this note_stage will take in a game_tick signal
--- it uses NOTE_HEIGHT, after NOTE_HEIGHT game-ticks it will move the notes down the screen by calling note_tick on all lanes
--- after moving notes down the screen, it uses randomizer.vhd to randomly add a note to one of the 4 lanes
--- it will take in a button input for each lane, and if the button input is pulsed when a note is at the bottom of the screen, then the player gets a point
 
 ENTITY note_stage IS
 	PORT (
@@ -76,8 +78,11 @@ ARCHITECTURE rtl OF note_stage IS
 	-- pulse to shift all lanes by one note
 	SIGNAL shift_notes_sig : STD_LOGIC := '0';
 
-	-- one add pulse per lane
-	SIGNAL add_note_sig : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
+        -- one add pulse per lane
+        SIGNAL add_note_sig : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
+        
+        -- clear bottom pulse per lane
+        SIGNAL clear_bottom_sig : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
 
 	-- counts game ticks between note shifts
 	SIGNAL tick_count : INTEGER RANGE 0 TO NOTE_HEIGHT := 0;
@@ -87,8 +92,6 @@ ARCHITECTURE rtl OF note_stage IS
 
 	-- random lane selection
         SIGNAL rand_lane_bits : STD_LOGIC_VECTOR(3 DOWNTO 0) := (OTHERS => '0');
-        SIGNAL note_scored : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
-
 
 BEGIN
 
@@ -99,6 +102,7 @@ BEGIN
 			shift_notes => shift_notes_sig,
 			add_note => add_note_sig(0),
 			notes_out => notes_matrix_sig(0)
+			clear_bottom => clear_bottom_sig(0)
 		);
 
 	lane1_inst : ENTITY work.note_lane
@@ -106,6 +110,7 @@ BEGIN
 			clk => game_tick,
 			shift_notes => shift_notes_sig,
 			add_note => add_note_sig(1),
+			clear_bottom => clear_bottom_sig(1),
 			notes_out => notes_matrix_sig(1)
 		);
 
@@ -114,6 +119,7 @@ BEGIN
 			clk => game_tick,
 			shift_notes => shift_notes_sig,
 			add_note => add_note_sig(2),
+			clear_bottom => clear_bottom_sig(2),
 			notes_out => notes_matrix_sig(2)
 		);
 
@@ -122,37 +128,39 @@ BEGIN
 			clk => game_tick,
 			shift_notes => shift_notes_sig,
 			add_note => add_note_sig(3),
+			clear_bottom => clear_bottom_sig(3),
 			notes_out => notes_matrix_sig(3)
 		);
 
-	-- Randomizer instance
+        -- Randomizer instance
+        randomizer_inst : ENTITY work.randomizer
+                PORT MAP(
+                        clk => game_tick,
+                        reset => '0',
+                        enable => shift_notes_sig,
+                        rand_out => rand_lane_bits
+                );
 
-	randomizer_inst : ENTITY work.randomizer
-		PORT MAP(
-			clk => game_tick,
-			reset => '0',
-			enable => shift_notes_sig,
-			rand_out => rand_lane_bits
-		);
+        -- Main control process
+        PROCESS (game_tick)
+        BEGIN
+                IF rising_edge(game_tick) THEN
+                        -- default: pulses are low unless asserted this cycle
+                        shift_notes_sig <= '0';
+                        add_note_sig <= (OTHERS => '0');
+                        clear_bottom_sig <= (OTHERS => '0');
 
-
-	-- Main control process
-	PROCESS (game_tick)
-	BEGIN
-		IF rising_edge(game_tick) THEN
-			-- default: pulses are low unless asserted this cycle
-			shift_notes_sig <= '0';
-			add_note_sig <= (OTHERS => '0');
-			-- check for scoring
-			FOR i IN 0 TO LANE_COUNT - 1 LOOP
-				IF note_scored(i) = '0' AND
-					buttons(i) = '1' AND
-					notes_matrix_sig(i)(NOTE_COUNT - 1) = '1' THEN
-					-- score increases by how close the note is to the bottom of the screen (max NOTE_HEIGHT points)
-					score_signal <= score_signal + NOTE_HEIGHT - tick_count;
-					note_scored(i) <= '1';
-				END IF;
-			END LOOP;
+                        -- check for scoring (note_matrix_sig represents the state)
+                        FOR i IN 0 TO LANE_COUNT - 1 LOOP
+                                -- note is in the bottom buffer zone
+                                IF buttons(i) = '1' AND notes_matrix_sig(i)(NOTE_COUNT - 1) = '1' THEN
+                                        -- score increases by how close the note is to the bottom
+                                        score_signal <= score_signal + NOTE_HEIGHT - tick_count;
+                                        
+                                        -- tell the lane to erase the note so it can't be scored again
+                                        clear_bottom_sig(i) <= '1';
+                                END IF;
+                        END LOOP;
 
 			IF tick_count = NOTE_HEIGHT THEN
 				shift_notes_sig <= '1'; -- shift notes down
