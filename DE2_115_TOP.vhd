@@ -14,9 +14,6 @@ USE ieee.numeric_std.ALL;
 USE work.game_pkg.ALL;
 
 ENTITY DE2_115_TOP IS
-	GENERIC (
-		TICKS_PER_SECOND : NATURAL := 50_000_000 -- default for 50 MHz CLOCK_50
-	);
 	PORT (
 		-- Clocks
 
@@ -104,14 +101,59 @@ END DE2_115_TOP;
 
 ARCHITECTURE structural OF DE2_115_TOP IS
 
-	-- Game timing configuration
-	CONSTANT GAME_TICK_RATE : NATURAL := 60;
-	-- Clock divider constants
-	CONSTANT CLOCK_DIVIDER : NATURAL := TICKS_PER_SECOND / GAME_TICK_RATE; -- 50,000,000 / 160 = 312,500
+	-- Component declarations
+	COMPONENT note_stage IS
+		PORT (
+			game_tick    : IN  STD_LOGIC;
+			reset_game   : IN  STD_LOGIC;
+			buttons      : IN  STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0);
+			notes_matrix : OUT note_matrix_t;
+			score        : OUT INTEGER;
+			max_score    : OUT INTEGER;
+			note_offset  : OUT INTEGER RANGE 0 TO NOTE_HEIGHT
+		);
+	END COMPONENT;
+
+	COMPONENT bcd7seg IS
+		PORT (
+			bcd : IN  STD_LOGIC_VECTOR(3 DOWNTO 0);
+			seg : OUT STD_LOGIC_VECTOR(6 DOWNTO 0)
+		);
+	END COMPONENT;
+
+	COMPONENT VGA_SYNC_module IS
+		PORT (
+			clock_50Mhz   : IN  STD_LOGIC;
+			red           : IN  STD_LOGIC_VECTOR(7 DOWNTO 0);
+			green         : IN  STD_LOGIC_VECTOR(7 DOWNTO 0);
+			blue          : IN  STD_LOGIC_VECTOR(7 DOWNTO 0);
+			red_out       : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+			green_out     : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+			blue_out      : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+			horiz_sync_out: OUT STD_LOGIC;
+			vert_sync_out : OUT STD_LOGIC;
+			video_on      : OUT STD_LOGIC;
+			pixel_clock   : OUT STD_LOGIC;
+			pixel_row     : OUT STD_LOGIC_VECTOR(10 DOWNTO 0);
+			pixel_column  : OUT STD_LOGIC_VECTOR(10 DOWNTO 0)
+		);
+	END COMPONENT;
+
+	COMPONENT tile_renderer IS
+		PORT (
+			pixel_row    : IN  STD_LOGIC_VECTOR(10 DOWNTO 0);
+			pixel_column : IN  STD_LOGIC_VECTOR(10 DOWNTO 0);
+			notes_matrix : IN  note_matrix_t;
+			note_offset  : IN  INTEGER RANGE 0 TO NOTE_HEIGHT;
+			Red          : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+			Green        : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+			Blue         : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+			video_on     : IN  STD_LOGIC
+		);
+	END COMPONENT;
 
 	-- Internal signals
-	SIGNAL game_tick : STD_LOGIC := '0';
-	SIGNAL game_tick_counter : NATURAL RANGE 0 TO CLOCK_DIVIDER - 1 := 0;
+	SIGNAL game_tick : STD_LOGIC;
 
 	-- Debounced button signals
 	SIGNAL buttons_debounced : STD_LOGIC_VECTOR(3 DOWNTO 0);
@@ -119,7 +161,11 @@ ARCHITECTURE structural OF DE2_115_TOP IS
 	-- Note stage outputs
 	SIGNAL notes_matrix : note_matrix_t;
 	SIGNAL score : INTEGER;
+	SIGNAL best_score : INTEGER := 0;
 	SIGNAL note_offset : INTEGER RANGE 0 TO NOTE_HEIGHT;
+	SIGNAL reset_game_tick : STD_LOGIC := '0';
+	SIGNAL reset_pending : STD_LOGIC := '0';
+	SIGNAL sw0_prev : STD_LOGIC := '0';
 
         -- VGA Signals
         SIGNAL red_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
@@ -155,16 +201,25 @@ ARCHITECTURE structural OF DE2_115_TOP IS
 
 BEGIN
 
-	-- Generate a game tick at the specified GAME_TICK_RATE (e.g., 160 BPM)
-	PROCESS (CLOCK_50)
+	-- Use vertical sync as the game tick so game logic updates once per frame,
+	-- during blanking, in lock-step with the display (eliminates tearing/jitter)
+	game_tick <= vert_sync_int;
+
+	-- SW0 rising edge requests a one-tick game reset pulse
+	PROCESS (game_tick)
 	BEGIN
-		IF rising_edge(CLOCK_50) THEN
-			IF game_tick_counter = CLOCK_DIVIDER - 1 THEN
-				game_tick <= '1';
-				game_tick_counter <= 0;
-			ELSE
-				game_tick <= '0';
-				game_tick_counter <= game_tick_counter + 1;
+		IF rising_edge(game_tick) THEN
+			reset_game_tick <= '0';
+
+			IF SW(0) = '1' AND sw0_prev = '0' THEN
+				reset_pending <= '1';
+			END IF;
+
+			sw0_prev <= SW(0);
+
+			IF reset_pending = '1' THEN
+				reset_game_tick <= '1';
+				reset_pending <= '0';
 			END IF;
 		END IF;
 	END PROCESS;
@@ -210,14 +265,15 @@ BEGIN
 	--         out_signal => buttons_debounced(3)
 	--     );
 
-	note_stage_inst : ENTITY work.note_stage
+	note_stage_inst : note_stage
 		PORT MAP(
-			game_tick => game_tick,
-			buttons => buttons_debounced,
+			game_tick    => game_tick,
+			reset_game => reset_game_tick,
+			buttons      => buttons_debounced,
 			notes_matrix => notes_matrix,
-			score => score,
+			score        => score,
 			max_score => max_score,
-			note_offset => note_offset
+			note_offset  => note_offset
 		);
 
 	--  MAP NOTES TO LEDS
@@ -247,25 +303,25 @@ BEGIN
 		);
 
 	-- BCD TO 7-SEGMENT DECODERS
-	bcd7seg_ones : ENTITY work.bcd7seg
+	bcd7seg_ones : bcd7seg
 		PORT MAP(
 			bcd => score_ones,
 			seg => HEX0
 		);
 
-	bcd7seg_tens : ENTITY work.bcd7seg
+	bcd7seg_tens : bcd7seg
 		PORT MAP(
 			bcd => score_tens,
 			seg => HEX1
 		);
 
-	bcd7seg_hundreds : ENTITY work.bcd7seg
+	bcd7seg_hundreds : bcd7seg
 		PORT MAP(
 			bcd => score_hundreds,
 			seg => HEX2
 		);
 
-	bcd7seg_thousands : ENTITY work.bcd7seg
+	bcd7seg_thousands : bcd7seg
 		PORT MAP(
 			bcd => score_thousands,
 			seg => HEX3
@@ -296,54 +352,35 @@ BEGIN
 	VGA_B <= vga_b_int;
 	VGA_CLK <= pixel_clock_int;
 	VGA_BLANK_N <= video_on_int;
+	VGA_SYNC_N <= '0';
 
-	U1 : ENTITY work.VGA_SYNC_module PORT MAP
-	(
-		clock_50Mhz => CLOCK_50,
-		red => red_int,
-		green => green_int,
-		blue => blue_int,
-		red_out => vga_r_int,
-		green_out => vga_g_int,
-		blue_out => vga_b_int,
-		horiz_sync_out => horiz_sync_int,
-		vert_sync_out => vert_sync_int,
-		video_on => video_on_int,
-		pixel_clock => pixel_clock_int,
-		pixel_row => pixel_row_int,
-		pixel_column => pixel_column_int
-	);
-
-	U2 : ENTITY work.tile_renderer PORT MAP
-	(
-		pixel_row => pixel_row_int,
-		pixel_column => pixel_column_int,
-		notes_matrix => notes_matrix,
-		note_offset => note_offset,
-		Red => tile_r,
-		Green => tile_g,
-		Blue => tile_b,
-		video_on => video_on_int
-	);
-
-	score_display_inst : ENTITY work.vga_score_display
+	U1 : VGA_SYNC_module
 		PORT MAP(
-			pixel_row => pixel_row_int,
+			clock_50Mhz    => CLOCK_50,
+			red            => red_int,
+			green          => green_int,
+			blue           => blue_int,
+			red_out        => vga_r_int,
+			green_out      => vga_g_int,
+			blue_out       => vga_b_int,
+			horiz_sync_out => horiz_sync_int,
+			vert_sync_out  => vert_sync_int,
+			video_on       => video_on_int,
+			pixel_clock    => pixel_clock_int,
+			pixel_row      => pixel_row_int,
+			pixel_column   => pixel_column_int
+		);
+
+	U2 : tile_renderer
+		PORT MAP(
+			pixel_row    => pixel_row_int,
 			pixel_column => pixel_column_int,
-			score_ones => score_ones,
-			score_tens => score_tens,
-			score_hundreds => score_hundreds,
-			score_thousands => score_thousands,
-			max_ones => max_ones,
-			max_tens => max_tens,
-			max_hundreds => max_hundreds,
-			max_thousands => max_thousands,
-			red_in => tile_r,
-			green_in => tile_g,
-			blue_in => tile_b,
-			red_out => red_int,
-			green_out => green_int,
-			blue_out => blue_int
+			notes_matrix => notes_matrix,
+			note_offset  => note_offset,
+			Red          => red_int,
+			Green        => green_int,
+			Blue         => blue_int,
+			video_on     => video_on_int
 		);
 
 END structural;
