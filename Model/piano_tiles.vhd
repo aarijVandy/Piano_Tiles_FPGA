@@ -202,9 +202,14 @@ BEGIN
 			END LOOP;
 
 			IF tick_count = NOTE_HEIGHT THEN
-				shift_notes_sig <= '1'; -- shift notes down
-
-				-- use 2 bits of 32-bit LFSR to pick one random lane
+				-- note_lane is acting on shift_notes_sig='1' this cycle (asserted last cycle);
+				-- reset tick_count so note_offset and the shifted matrix are in sync
+				tick_count <= 0;
+				button_pressed_sig <= (OTHERS => '0');
+			ELSIF tick_count = NOTE_HEIGHT - 1 THEN
+				-- assert shift one cycle early so note_lane shifts on the same edge
+				-- that tick_count resets to 0, keeping note_offset and notes_matrix in sync
+				shift_notes_sig <= '1';
 				CASE rand_lane_bits(1 DOWNTO 0) IS
 					WHEN "00" => add_note_sig(0) <= '1';
 					WHEN "01" => add_note_sig(1) <= '1';
@@ -212,9 +217,8 @@ BEGIN
 					WHEN "11" => add_note_sig(3) <= '1';
 					WHEN OTHERS => NULL;
 				END CASE;
-
-				tick_count <= 0; -- reset tick count
-				button_pressed_sig <= (OTHERS => '0');
+				tick_count <= NOTE_HEIGHT;
+				button_pressed_sig <= button_pressed_next;
 			ELSE
 				tick_count <= tick_count + 1;
 				button_pressed_sig <= button_pressed_next;
