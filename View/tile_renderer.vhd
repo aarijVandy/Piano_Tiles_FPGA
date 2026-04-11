@@ -8,6 +8,7 @@ ENTITY tile_renderer IS
         pixel_row    : IN std_logic_vector(10 DOWNTO 0);
         pixel_column : IN std_logic_vector(10 DOWNTO 0);
         notes_matrix : IN note_matrix_t;
+        hit_matrix   : IN note_matrix_t;
         note_offset  : IN integer range 0 to NOTE_HEIGHT;
         Red          : OUT std_logic_vector(7 downto 0);
         Green        : OUT std_logic_vector(7 downto 0);
@@ -21,7 +22,7 @@ ARCHITECTURE behavior OF tile_renderer IS
     CONSTANT LANE_END_X   : integer := LANE_START_X + (LANE_COUNT * LANE_WIDTH);
     CONSTANT NOTE_PX_H    : integer := SCREEN_HEIGHT / NOTE_VISIBLE;
 BEGIN
-    PROCESS (pixel_column, pixel_row, notes_matrix, note_offset, video_on)
+    PROCESS (pixel_column, pixel_row, notes_matrix, hit_matrix, note_offset, video_on)
         VARIABLE p_x : integer;
         VARIABLE p_y : integer;
         VARIABLE lane_idx : integer;
@@ -49,10 +50,17 @@ BEGIN
                 IF note_idx >= 0 AND note_idx < NOTE_VISIBLE THEN
                     -- Visible area: array index is offset by NOTE_BUFFER (index 0 is the slide-in buffer)
                     IF notes_matrix(lane_idx)(note_idx + NOTE_BUFFER) = '1' THEN
-                        -- Draw Note (Black)
-                        Red   <= x"00";
-                        Green <= x"00";
-                        Blue  <= x"00";
+                        IF hit_matrix(lane_idx)(note_idx + NOTE_BUFFER) = '1' THEN
+                            -- Draw hit note (Gray)
+                            Red   <= x"88";
+                            Green <= x"88";
+                            Blue  <= x"88";
+                        ELSE
+                            -- Draw active note (Black)
+                            Red   <= x"00";
+                            Green <= x"00";
+                            Blue  <= x"00";
+                        END IF;
                     ELSE
                         -- Draw empty lane (White)
                         Red   <= x"FF";

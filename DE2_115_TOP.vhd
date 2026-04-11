@@ -108,6 +108,7 @@ ARCHITECTURE structural OF DE2_115_TOP IS
 			reset_game   : IN  STD_LOGIC;
 			buttons      : IN  STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0);
 			notes_matrix : OUT note_matrix_t;
+			hit_matrix   : OUT note_matrix_t;
 			score        : OUT INTEGER;
 			max_score    : OUT INTEGER;
 			note_offset  : OUT INTEGER RANGE 0 TO NOTE_HEIGHT
@@ -144,6 +145,7 @@ ARCHITECTURE structural OF DE2_115_TOP IS
 			pixel_row    : IN  STD_LOGIC_VECTOR(10 DOWNTO 0);
 			pixel_column : IN  STD_LOGIC_VECTOR(10 DOWNTO 0);
 			notes_matrix : IN  note_matrix_t;
+			hit_matrix   : IN  note_matrix_t;
 			note_offset  : IN  INTEGER RANGE 0 TO NOTE_HEIGHT;
 			Red          : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
 			Green        : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
@@ -160,6 +162,7 @@ ARCHITECTURE structural OF DE2_115_TOP IS
 
 	-- Note stage outputs
 	SIGNAL notes_matrix : note_matrix_t;
+	SIGNAL hit_matrix : note_matrix_t;
 	SIGNAL score : INTEGER;
 	SIGNAL best_score : INTEGER := 0;
 	SIGNAL note_offset : INTEGER RANGE 0 TO NOTE_HEIGHT;
@@ -271,6 +274,7 @@ BEGIN
 			reset_game => reset_game_tick,
 			buttons      => buttons_debounced,
 			notes_matrix => notes_matrix,
+			hit_matrix   => hit_matrix,
 			score        => score,
 			max_score => max_score,
 			note_offset  => note_offset
@@ -376,6 +380,7 @@ BEGIN
 			pixel_row    => pixel_row_int,
 			pixel_column => pixel_column_int,
 			notes_matrix => notes_matrix,
+			hit_matrix   => hit_matrix,
 			note_offset  => note_offset,
 			Red          => red_int,
 			Green        => green_int,

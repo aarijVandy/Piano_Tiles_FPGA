@@ -15,44 +15,53 @@ ENTITY note_lane IS
 		reset_game : IN STD_LOGIC;
 		shift_notes : IN STD_LOGIC;
 		add_note : IN STD_LOGIC;
-		clear_bottom : IN STD_LOGIC;
-		notes_out : OUT STD_LOGIC_VECTOR(NOTE_COUNT - 1 DOWNTO 0)
+		mark_bottom_hit : IN STD_LOGIC;
+		notes_out : OUT STD_LOGIC_VECTOR(NOTE_COUNT - 1 DOWNTO 0);
+		hits_out : OUT STD_LOGIC_VECTOR(NOTE_COUNT - 1 DOWNTO 0)
 	);
 END ENTITY;
 
 ARCHITECTURE rtl OF note_lane IS
 	SIGNAL notes : STD_LOGIC_VECTOR(NOTE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
+	SIGNAL hits : STD_LOGIC_VECTOR(NOTE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
 BEGIN
 	PROCESS (clk)
 		VARIABLE next_notes : STD_LOGIC_VECTOR(NOTE_COUNT - 1 DOWNTO 0);
+		VARIABLE next_hits : STD_LOGIC_VECTOR(NOTE_COUNT - 1 DOWNTO 0);
 	BEGIN
 		IF rising_edge(clk) THEN
 			IF reset_game = '1' THEN
 				notes <= (OTHERS => '0');
+				hits <= (OTHERS => '0');
 			ELSE
 				next_notes := notes; -- Default to hold current value
+				next_hits := hits;
 
 			IF shift_notes = '1' THEN
 				-- move notes down one position (0 -> 1 -> 2 ... -> 7)
 				next_notes := next_notes(NOTE_COUNT - 2 DOWNTO 0) & '0';
+				next_hits := next_hits(NOTE_COUNT - 2 DOWNTO 0) & '0';
 
 				-- add a new note at the top if requested
 				IF add_note = '1' THEN
 					next_notes(0) := '1';
+					next_hits(0) := '0';
 				END IF;
 			END IF;
 
-			-- Instantly clear the bottom tile if scored
-			IF clear_bottom = '1' THEN
-				next_notes(NOTE_COUNT - 1) := '0';
+			-- Mark bottom tile as hit so renderer can draw it gray
+			IF mark_bottom_hit = '1' AND next_notes(NOTE_COUNT - 1) = '1' THEN
+				next_hits(NOTE_COUNT - 1) := '1';
 			END IF;
 
 				notes <= next_notes;
+				hits <= next_hits;
 			END IF;
 		END IF;
 	END PROCESS;
 
 	notes_out <= notes;
+	hits_out <= hits;
 END ARCHITECTURE;
 
 LIBRARY ieee;
@@ -70,6 +79,7 @@ ENTITY note_stage IS
 
 		-- current notes in all lanes
 		notes_matrix : OUT note_matrix_t;
+		hit_matrix : OUT note_matrix_t;
 
 		-- current score
 		score : OUT INTEGER;
@@ -91,8 +101,9 @@ ARCHITECTURE rtl OF note_stage IS
 			reset_game : IN STD_LOGIC;
 			shift_notes : IN STD_LOGIC;
 			add_note : IN STD_LOGIC;
-			clear_bottom : IN STD_LOGIC;
-			notes_out : OUT STD_LOGIC_VECTOR(NOTE_COUNT - 1 DOWNTO 0)
+			mark_bottom_hit : IN STD_LOGIC;
+			notes_out : OUT STD_LOGIC_VECTOR(NOTE_COUNT - 1 DOWNTO 0);
+			hits_out : OUT STD_LOGIC_VECTOR(NOTE_COUNT - 1 DOWNTO 0)
 		);
 	END COMPONENT;
 
@@ -107,6 +118,7 @@ ARCHITECTURE rtl OF note_stage IS
 
 	-- internal storage for lane outputs
 	SIGNAL notes_matrix_sig : note_matrix_t := (OTHERS => (OTHERS => '0'));
+	SIGNAL hit_matrix_sig : note_matrix_t := (OTHERS => (OTHERS => '0'));
 
 	-- pulse to shift all lanes by one note
 	SIGNAL shift_notes_sig : STD_LOGIC := '0';
@@ -114,8 +126,8 @@ ARCHITECTURE rtl OF note_stage IS
 	-- one add pulse per lane
 	SIGNAL add_note_sig : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
 
-	-- clear bottom pulse per lane
-	SIGNAL clear_bottom_sig : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
+	-- mark bottom tile hit pulse per lane
+	SIGNAL mark_bottom_hit_sig : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
 
 	-- tracks whether each lane button has already been scored this note cycle
 	SIGNAL button_pressed_sig : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
@@ -124,8 +136,8 @@ ARCHITECTURE rtl OF note_stage IS
 	SIGNAL tick_count : INTEGER RANGE 0 TO NOTE_HEIGHT := 0;
 
 	-- score register
-	SIGNAL score_signal : INTEGER := 0;
-	SIGNAL max_score_sig : INTEGER := 0;
+	SIGNAL score_signal : INTEGER := 25;
+	SIGNAL max_score_sig : INTEGER := 25;
 
 	-- random lane selection (32-bit LFSR output)
 	SIGNAL rand_lane_bits : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
@@ -139,8 +151,9 @@ BEGIN
 			reset_game => reset_game,
 			shift_notes => shift_notes_sig,
 			add_note => add_note_sig(0),
-			clear_bottom => clear_bottom_sig(0),
-			notes_out => notes_matrix_sig(0)
+			mark_bottom_hit => mark_bottom_hit_sig(0),
+			notes_out => notes_matrix_sig(0),
+			hits_out => hit_matrix_sig(0)
 		);
 
 	lane1_inst : note_lane
@@ -149,8 +162,9 @@ BEGIN
 			reset_game => reset_game,
 			shift_notes => shift_notes_sig,
 			add_note => add_note_sig(1),
-			clear_bottom => clear_bottom_sig(1),
-			notes_out => notes_matrix_sig(1)
+			mark_bottom_hit => mark_bottom_hit_sig(1),
+			notes_out => notes_matrix_sig(1),
+			hits_out => hit_matrix_sig(1)
 		);
 
 	lane2_inst : note_lane
@@ -159,8 +173,9 @@ BEGIN
 			reset_game => reset_game,
 			shift_notes => shift_notes_sig,
 			add_note => add_note_sig(2),
-			clear_bottom => clear_bottom_sig(2),
-			notes_out => notes_matrix_sig(2)
+			mark_bottom_hit => mark_bottom_hit_sig(2),
+			notes_out => notes_matrix_sig(2),
+			hits_out => hit_matrix_sig(2)
 		);
 
 	lane3_inst : note_lane
@@ -169,8 +184,9 @@ BEGIN
 			reset_game => reset_game,
 			shift_notes => shift_notes_sig,
 			add_note => add_note_sig(3),
-			clear_bottom => clear_bottom_sig(3),
-			notes_out => notes_matrix_sig(3)
+			mark_bottom_hit => mark_bottom_hit_sig(3),
+			notes_out => notes_matrix_sig(3),
+			hits_out => hit_matrix_sig(3)
 		);
 
 	-- Randomizer instance (32-bit LFSR)
@@ -191,13 +207,13 @@ BEGIN
 			-- default: pulses are low unless asserted this cycle
 			shift_notes_sig <= '0';
 			add_note_sig <= (OTHERS => '0');
-			clear_bottom_sig <= (OTHERS => '0');
+			mark_bottom_hit_sig <= (OTHERS => '0');
 
 			IF reset_game = '1' THEN
 				score_signal <= 0;
 				tick_count <= 0;
 				button_pressed_sig <= (OTHERS => '0');
-			ELSE
+			ELSE IF score_signal >= 0 THEN
 				score_next := score_signal;
 				button_pressed_next := button_pressed_sig;
 
@@ -212,8 +228,8 @@ BEGIN
 								-- score increases by how close the note is to the bottom
 								score_next := score_next + NOTE_HEIGHT - tick_count;
 
-							-- tell the lane to erase the note so it can't be scored again
-							clear_bottom_sig(i) <= '1';
+							-- mark tile as hit so renderer shows gray until it scrolls off
+							mark_bottom_hit_sig(i) <= '1';
 						ELSE
 							-- penalize for pressing when no note is there
 							score_next := score_next - 10;
@@ -255,6 +271,7 @@ BEGIN
 
 	-- Outputs
 	notes_matrix <= notes_matrix_sig;
+	hit_matrix <= hit_matrix_sig;
 	score <= score_signal;
 	max_score <= max_score_sig;
 	note_offset <= tick_count;
