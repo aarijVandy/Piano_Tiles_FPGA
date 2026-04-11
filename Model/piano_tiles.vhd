@@ -177,7 +177,7 @@ BEGIN
 	randomizer_inst : randomizer
 		PORT MAP(
 			clk => game_tick,
-			reset => '0',
+			reset => reset_game,
 			enable => '1',
 			rand_out => rand_lane_bits
 		);
@@ -198,59 +198,57 @@ BEGIN
 				tick_count <= 0;
 				button_pressed_sig <= (OTHERS => '0');
 			ELSE
-				IF score_signal >= 0 THEN
-					score_next := score_signal;
-					button_pressed_next := button_pressed_sig;
+				score_next := score_signal;
+				button_pressed_next := button_pressed_sig;
 
-					-- check for scoring
-					FOR i IN 0 TO LANE_COUNT - 1 LOOP
-						-- each lane can only score/penalize once per note cycle
-						IF buttons(i) = '1' AND button_pressed_sig(i) = '0' THEN
-							button_pressed_next(i) := '1';
+				-- check for scoring
+				FOR i IN 0 TO LANE_COUNT - 1 LOOP
+					-- each lane can only score/penalize once per note cycle
+					IF buttons(i) = '1' AND button_pressed_sig(i) = '0' THEN
+						button_pressed_next(i) := '1';
 
 							-- note is in the bottom buffer zone
 							IF notes_matrix_sig(i)(NOTE_COUNT - 1) = '1' THEN
 								-- score increases by how close the note is to the bottom
 								score_next := score_next + NOTE_HEIGHT - tick_count;
 
-						-- tell the lane to erase the note so it can't be scored again
-						clear_bottom_sig(i) <= '1';
-					ELSE
-						-- penalize for pressing when no note is there
-						score_next := score_next - 10;
-					END IF;
-				END IF;
-			END LOOP;
-
-						IF score_signal > max_score_sig THEN
-							max_score_sig <= score_signal;
+							-- tell the lane to erase the note so it can't be scored again
+							clear_bottom_sig(i) <= '1';
+						ELSE
+							-- penalize for pressing when no note is there
+							score_next := score_next - 10;
 						END IF;
+					END IF;
+				END LOOP;
 
-			IF tick_count = NOTE_HEIGHT THEN
-				-- note_lane is acting on shift_notes_sig='1' this cycle (asserted last cycle);
-				-- reset tick_count so note_offset and the shifted matrix are in sync
-				tick_count <= 0;
-				button_pressed_sig <= (OTHERS => '0');
-			ELSIF tick_count = NOTE_HEIGHT - 1 THEN
-				-- assert shift one cycle early so note_lane shifts on the same edge
-				-- that tick_count resets to 0, keeping note_offset and notes_matrix in sync
-				shift_notes_sig <= '1';
-				CASE rand_lane_bits(1 DOWNTO 0) IS
-					WHEN "00" => add_note_sig(0) <= '1';
-					WHEN "01" => add_note_sig(1) <= '1';
-					WHEN "10" => add_note_sig(2) <= '1';
-					WHEN "11" => add_note_sig(3) <= '1';
-					WHEN OTHERS => NULL;
-				END CASE;
-				tick_count <= NOTE_HEIGHT;
-				button_pressed_sig <= button_pressed_next;
-			ELSE
-				tick_count <= tick_count + 1;
-				button_pressed_sig <= button_pressed_next;
-			END IF;
-
-					score_signal <= score_next;
+				IF score_next > max_score_sig THEN
+					max_score_sig <= score_next;
 				END IF;
+
+				IF tick_count = NOTE_HEIGHT THEN
+					-- note_lane is acting on shift_notes_sig='1' this cycle (asserted last cycle);
+					-- reset tick_count so note_offset and the shifted matrix are in sync
+					tick_count <= 0;
+					button_pressed_sig <= (OTHERS => '0');
+				ELSIF tick_count = NOTE_HEIGHT - 1 THEN
+					-- assert shift one cycle early so note_lane shifts on the same edge
+					-- that tick_count resets to 0, keeping note_offset and notes_matrix in sync
+					shift_notes_sig <= '1';
+					CASE rand_lane_bits(1 DOWNTO 0) IS
+						WHEN "00" => add_note_sig(0) <= '1';
+						WHEN "01" => add_note_sig(1) <= '1';
+						WHEN "10" => add_note_sig(2) <= '1';
+						WHEN "11" => add_note_sig(3) <= '1';
+						WHEN OTHERS => NULL;
+					END CASE;
+					tick_count <= NOTE_HEIGHT;
+					button_pressed_sig <= button_pressed_next;
+				ELSE
+					tick_count <= tick_count + 1;
+					button_pressed_sig <= button_pressed_next;
+				END IF;
+
+				score_signal <= score_next;
 			END IF;
 		END IF;
 	END PROCESS;

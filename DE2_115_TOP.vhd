@@ -105,9 +105,11 @@ ARCHITECTURE structural OF DE2_115_TOP IS
 	COMPONENT note_stage IS
 		PORT (
 			game_tick    : IN  STD_LOGIC;
+			reset_game   : IN  STD_LOGIC;
 			buttons      : IN  STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0);
 			notes_matrix : OUT note_matrix_t;
 			score        : OUT INTEGER;
+			max_score    : OUT INTEGER;
 			note_offset  : OUT INTEGER RANGE 0 TO NOTE_HEIGHT
 		);
 	END COMPONENT;
@@ -202,6 +204,25 @@ BEGIN
 	-- Use vertical sync as the game tick so game logic updates once per frame,
 	-- during blanking, in lock-step with the display (eliminates tearing/jitter)
 	game_tick <= vert_sync_int;
+
+	-- SW0 rising edge requests a one-tick game reset pulse
+	PROCESS (game_tick)
+	BEGIN
+		IF rising_edge(game_tick) THEN
+			reset_game_tick <= '0';
+
+			IF SW(0) = '1' AND sw0_prev = '0' THEN
+				reset_pending <= '1';
+			END IF;
+
+			sw0_prev <= SW(0);
+
+			IF reset_pending = '1' THEN
+				reset_game_tick <= '1';
+				reset_pending <= '0';
+			END IF;
+		END IF;
+	END PROCESS;
 
 	buttons_debounced(0) <= '1' WHEN KEY(0) = '0' ELSE
 	'0'; -- Active-low buttons
@@ -331,6 +352,7 @@ BEGIN
 	VGA_B <= vga_b_int;
 	VGA_CLK <= pixel_clock_int;
 	VGA_BLANK_N <= video_on_int;
+	VGA_SYNC_N <= '0';
 
 	U1 : VGA_SYNC_module
 		PORT MAP(
