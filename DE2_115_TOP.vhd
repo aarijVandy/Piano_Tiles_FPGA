@@ -141,6 +141,18 @@ ARCHITECTURE structural OF DE2_115_TOP IS
 	SIGNAL score_hundreds : STD_LOGIC_VECTOR(3 DOWNTO 0);
 	SIGNAL score_thousands : STD_LOGIC_VECTOR(3 DOWNTO 0);
 
+	-- Max score display signals
+	SIGNAL max_score : INTEGER;
+	SIGNAL max_ones : STD_LOGIC_VECTOR(3 DOWNTO 0);
+	SIGNAL max_tens : STD_LOGIC_VECTOR(3 DOWNTO 0);
+	SIGNAL max_hundreds : STD_LOGIC_VECTOR(3 DOWNTO 0);
+	SIGNAL max_thousands : STD_LOGIC_VECTOR(3 DOWNTO 0);
+
+	-- Tile renderer signals
+	SIGNAL tile_r : STD_LOGIC_VECTOR(7 DOWNTO 0);
+	SIGNAL tile_g : STD_LOGIC_VECTOR(7 DOWNTO 0);
+	SIGNAL tile_b : STD_LOGIC_VECTOR(7 DOWNTO 0);
+
 BEGIN
 
 	-- Generate a game tick at the specified GAME_TICK_RATE (e.g., 160 BPM)
@@ -204,6 +216,7 @@ BEGIN
 			buttons => buttons_debounced,
 			notes_matrix => notes_matrix,
 			score => score,
+			max_score => max_score,
 			note_offset => note_offset
 		);
 
@@ -215,23 +228,23 @@ BEGIN
 	LEDG(8 DOWNTO 4) <= (OTHERS => '0'); -- Unused
 
 	-- SCORE TO BCD CONVERSION
+	score_bcd_inst : ENTITY work.score_to_bcd
+		PORT MAP(
+			score => score,
+			ones => score_ones,
+			tens => score_tens,
+			hundreds => score_hundreds,
+			thousands => score_thousands
+		);
 
-	-- Convert integer score to BCD digits
-	PROCESS (score)
-		VARIABLE temp : INTEGER;
-	BEGIN
-		temp := score MOD 10;
-		score_ones <= STD_LOGIC_VECTOR(to_unsigned(temp, 4));
-
-		temp := (score / 10) MOD 10;
-		score_tens <= STD_LOGIC_VECTOR(to_unsigned(temp, 4));
-
-		temp := (score / 100) MOD 10;
-		score_hundreds <= STD_LOGIC_VECTOR(to_unsigned(temp, 4));
-
-		temp := (score / 1000) MOD 10;
-		score_thousands <= STD_LOGIC_VECTOR(to_unsigned(temp, 4));
-	END PROCESS;
+	max_score_bcd_inst : ENTITY work.score_to_bcd
+		PORT MAP(
+			score => max_score,
+			ones => max_ones,
+			tens => max_tens,
+			hundreds => max_hundreds,
+			thousands => max_thousands
+		);
 
 	-- BCD TO 7-SEGMENT DECODERS
 	bcd7seg_ones : ENTITY work.bcd7seg
@@ -307,10 +320,30 @@ BEGIN
 		pixel_column => pixel_column_int,
 		notes_matrix => notes_matrix,
 		note_offset => note_offset,
-		Red => red_int,
-		Green => green_int,
-		Blue => blue_int,
+		Red => tile_r,
+		Green => tile_g,
+		Blue => tile_b,
 		video_on => video_on_int
 	);
+
+	score_display_inst : ENTITY work.vga_score_display
+		PORT MAP(
+			pixel_row => pixel_row_int,
+			pixel_column => pixel_column_int,
+			score_ones => score_ones,
+			score_tens => score_tens,
+			score_hundreds => score_hundreds,
+			score_thousands => score_thousands,
+			max_ones => max_ones,
+			max_tens => max_tens,
+			max_hundreds => max_hundreds,
+			max_thousands => max_thousands,
+			red_in => tile_r,
+			green_in => tile_g,
+			blue_in => tile_b,
+			red_out => red_int,
+			green_out => green_int,
+			blue_out => blue_int
+		);
 
 END structural;

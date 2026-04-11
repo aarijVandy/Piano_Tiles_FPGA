@@ -68,6 +68,9 @@ ENTITY note_stage IS
 		-- current score
 		score : OUT INTEGER;
 
+		-- current max score
+		max_score : OUT INTEGER;
+
 		-- sub-note offset for rendering
 		note_offset : OUT INTEGER RANGE 0 TO NOTE_HEIGHT
 	);
@@ -115,6 +118,7 @@ ARCHITECTURE rtl OF note_stage IS
 
 	-- score register
 	SIGNAL score_signal : INTEGER := 0;
+	SIGNAL max_score_sig : INTEGER := 0;
 
 	-- random lane selection (32-bit LFSR output)
 	SIGNAL rand_lane_bits : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
@@ -201,6 +205,10 @@ BEGIN
 				END IF;
 			END LOOP;
 
+						IF score_signal > max_score_sig THEN
+							max_score_sig <= score_signal;
+						END IF;
+
 			IF tick_count = NOTE_HEIGHT THEN
 				shift_notes_sig <= '1'; -- shift notes down
 
@@ -227,6 +235,7 @@ BEGIN
 	-- Outputs
 	notes_matrix <= notes_matrix_sig;
 	score <= score_signal;
+	max_score <= max_score_sig;
 	note_offset <= tick_count;
 
 END ARCHITECTURE;
