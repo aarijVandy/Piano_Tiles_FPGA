@@ -264,7 +264,7 @@ BEGIN
 					button_pressed_sig <= button_pressed_next;
 				END IF;
 
-				if scoore_next < 0 then
+				if score_next < 0 then
 					score_next := 0;
 				end if;
 
