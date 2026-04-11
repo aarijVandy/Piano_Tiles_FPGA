@@ -138,11 +138,18 @@ ARCHITECTURE rtl OF note_stage IS
 	-- score register
 	SIGNAL score_signal : INTEGER := 25;
 	SIGNAL max_score_sig : INTEGER := 25;
+	
+	SIGNAL total_game_ticks : INTEGER := 0;
+	SIGNAL current_penalty : INTEGER := 10;
+	SIGNAL missed_penalty : INTEGER := 5;
 
 	-- random lane selection (32-bit LFSR output)
 	SIGNAL rand_lane_bits : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
 
 BEGIN
+
+	current_penalty <= 10 + (total_game_ticks / 25);
+	missed_penalty <= 5 + (total_game_ticks / 120);
 
 	-- Lane instances
 	lane0_inst : note_lane
@@ -186,14 +193,14 @@ BEGIN
 			add_note => add_note_sig(3),
 			mark_bottom_hit => mark_bottom_hit_sig(3),
 			notes_out => notes_matrix_sig(3),
-			hits_out => hit_matrix_sig(3)
+			hits_out => hit_matrix_sig(3)	
 		);
 
 	-- Randomizer instance (32-bit LFSR)
 	randomizer_inst : randomizer
 		PORT MAP(
 			clk => game_tick,
-			reset => reset_game,
+			reset => '0',
 			enable => '1',
 			rand_out => rand_lane_bits
 		);
@@ -202,8 +209,11 @@ BEGIN
 	PROCESS (game_tick)
 		VARIABLE score_next : INTEGER;
 		VARIABLE button_pressed_next : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0);
+		VARIABLE rand_val : INTEGER RANGE 0 TO 63;
+		VARIABLE tile_hit_this_cycle : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0);
 	BEGIN
 		IF rising_edge(game_tick) THEN
+			tile_hit_this_cycle := (OTHERS => '0');
 			-- default: pulses are low unless asserted this cycle
 			shift_notes_sig <= '0';
 			add_note_sig <= (OTHERS => '0');
@@ -213,7 +223,9 @@ BEGIN
 				score_signal <= 25;
 				tick_count <= 0;	
 				button_pressed_sig <= (OTHERS => '0');
+				total_game_ticks <= 0;
 			ELSIF score_signal > 0 THEN
+				total_game_ticks <= total_game_ticks + 1;
 				score_next := score_signal;
 				button_pressed_next := button_pressed_sig;
 
@@ -230,9 +242,10 @@ BEGIN
 
 							-- mark tile as hit so renderer shows gray until it scrolls off
 							mark_bottom_hit_sig(i) <= '1';
+							tile_hit_this_cycle(i) := '1';
 						ELSE
-							-- penalize for pressing when no note is there
-							score_next := score_next - 10;
+							-- penalize progressively for pressing when no note is there
+							score_next := score_next - current_penalty;
 						END IF;
 					END IF;
 				END LOOP;
@@ -250,13 +263,43 @@ BEGIN
 					-- assert shift one cycle early so note_lane shifts on the same edge
 					-- that tick_count resets to 0, keeping note_offset and notes_matrix in sync
 					shift_notes_sig <= '1';
-					CASE rand_lane_bits(1 DOWNTO 0) IS
-						WHEN "00" => add_note_sig(0) <= '1';
-						WHEN "01" => add_note_sig(1) <= '1';
-						WHEN "10" => add_note_sig(2) <= '1';
-						WHEN "11" => add_note_sig(3) <= '1';
+					
+					-- Check missed tiles falling off
+					FOR i IN 0 TO LANE_COUNT - 1 LOOP
+						IF notes_matrix_sig(i)(NOTE_COUNT - 1) = '1' THEN
+							IF hit_matrix_sig(i)(NOTE_COUNT - 1) = '0' AND tile_hit_this_cycle(i) = '0' THEN
+								score_next := score_next - missed_penalty;
+							END IF;
+						END IF;
+					END LOOP;
+					
+					-- 6-bit randomness distribution (0 to 63)
+					-- 81% Single, 9% Double, 6% Empty, 3% Triple
+					rand_val := to_integer(unsigned(rand_lane_bits(5 DOWNTO 0)));
+					CASE rand_val IS
+						-- Single Tiles (Common)
+						WHEN 0 TO 12 => add_note_sig(0) <= '1';
+						WHEN 13 TO 25 => add_note_sig(1) <= '1';
+						WHEN 26 TO 38 => add_note_sig(2) <= '1';
+						WHEN 39 TO 51 => add_note_sig(3) <= '1';
+						
+						-- Double Tiles (Rare)
+						WHEN 52 => add_note_sig(0) <= '1'; add_note_sig(1) <= '1';
+						WHEN 53 => add_note_sig(1) <= '1'; add_note_sig(2) <= '1';
+						WHEN 54 => add_note_sig(2) <= '1'; add_note_sig(3) <= '1';
+						WHEN 55 => add_note_sig(0) <= '1'; add_note_sig(2) <= '1';
+						WHEN 56 => add_note_sig(1) <= '1'; add_note_sig(3) <= '1';
+						WHEN 57 => add_note_sig(0) <= '1'; add_note_sig(3) <= '1';
+						
+						-- No Tiles / Empty Row breather (Very Rare)
+						WHEN 58 TO 61 => NULL;
+						
+						-- Triple Tiles (Exceptionally Rare)
+						WHEN 62 => add_note_sig(0) <= '1'; add_note_sig(1) <= '1'; add_note_sig(2) <= '1';
+						WHEN 63 => add_note_sig(1) <= '1'; add_note_sig(2) <= '1'; add_note_sig(3) <= '1';
 						WHEN OTHERS => NULL;
 					END CASE;
+					
 					tick_count <= NOTE_HEIGHT;
 					button_pressed_sig <= button_pressed_next;
 				ELSE
