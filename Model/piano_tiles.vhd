@@ -72,7 +72,28 @@ ENTITY note_stage IS
 		note_offset : OUT INTEGER RANGE 0 TO NOTE_HEIGHT
 	);
 END ENTITY;
+
 ARCHITECTURE rtl OF note_stage IS
+
+	-- Component declarations
+	COMPONENT note_lane IS
+		PORT (
+			clk : IN STD_LOGIC;
+			shift_notes : IN STD_LOGIC;
+			add_note : IN STD_LOGIC;
+			clear_bottom : IN STD_LOGIC;
+			notes_out : OUT STD_LOGIC_VECTOR(NOTE_COUNT - 1 DOWNTO 0)
+		);
+	END COMPONENT;
+
+	COMPONENT randomizer IS
+		PORT (
+			clk      : IN  STD_LOGIC;
+			reset    : IN  STD_LOGIC;
+			enable   : IN  STD_LOGIC;
+			rand_out : OUT STD_LOGIC_VECTOR(31 DOWNTO 0)
+		);
+	END COMPONENT;
 
 	-- internal storage for lane outputs
 	SIGNAL notes_matrix_sig : note_matrix_t := (OTHERS => (OTHERS => '0'));
@@ -95,22 +116,22 @@ ARCHITECTURE rtl OF note_stage IS
 	-- score register
 	SIGNAL score_signal : INTEGER := 0;
 
-	-- random lane selection
-	SIGNAL rand_lane_bits : STD_LOGIC_VECTOR(3 DOWNTO 0) := (OTHERS => '0');
+	-- random lane selection (32-bit LFSR output)
+	SIGNAL rand_lane_bits : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
 
 BEGIN
 
 	-- Lane instances
-	lane0_inst : ENTITY work.note_lane
+	lane0_inst : note_lane
 		PORT MAP(
 			clk => game_tick,
 			shift_notes => shift_notes_sig,
 			add_note => add_note_sig(0),
-			notes_out => notes_matrix_sig(0),
-			clear_bottom => clear_bottom_sig(0)
+			clear_bottom => clear_bottom_sig(0),
+			notes_out => notes_matrix_sig(0)
 		);
 
-	lane1_inst : ENTITY work.note_lane
+	lane1_inst : note_lane
 		PORT MAP(
 			clk => game_tick,
 			shift_notes => shift_notes_sig,
@@ -119,7 +140,7 @@ BEGIN
 			notes_out => notes_matrix_sig(1)
 		);
 
-	lane2_inst : ENTITY work.note_lane
+	lane2_inst : note_lane
 		PORT MAP(
 			clk => game_tick,
 			shift_notes => shift_notes_sig,
@@ -128,7 +149,7 @@ BEGIN
 			notes_out => notes_matrix_sig(2)
 		);
 
-	lane3_inst : ENTITY work.note_lane
+	lane3_inst : note_lane
 		PORT MAP(
 			clk => game_tick,
 			shift_notes => shift_notes_sig,
@@ -137,8 +158,8 @@ BEGIN
 			notes_out => notes_matrix_sig(3)
 		);
 
-	-- Randomizer instance
-	randomizer_inst : ENTITY work.randomizer
+	-- Randomizer instance (32-bit LFSR)
+	randomizer_inst : randomizer
 		PORT MAP(
 			clk => game_tick,
 			reset => '0',
@@ -160,7 +181,7 @@ BEGIN
 			score_next := score_signal;
 			button_pressed_next := button_pressed_sig;
 
-			-- check for scoring (note_matrix_sig represents the state)
+			-- check for scoring
 			FOR i IN 0 TO LANE_COUNT - 1 LOOP
 				-- each lane can only score/penalize once per note cycle
 				IF buttons(i) = '1' AND button_pressed_sig(i) = '0' THEN
@@ -182,7 +203,16 @@ BEGIN
 
 			IF tick_count = NOTE_HEIGHT THEN
 				shift_notes_sig <= '1'; -- shift notes down
-				add_note_sig <= rand_lane_bits; -- add new note to random lane
+
+				-- use 2 bits of 32-bit LFSR to pick one random lane
+				CASE rand_lane_bits(1 DOWNTO 0) IS
+					WHEN "00" => add_note_sig(0) <= '1';
+					WHEN "01" => add_note_sig(1) <= '1';
+					WHEN "10" => add_note_sig(2) <= '1';
+					WHEN "11" => add_note_sig(3) <= '1';
+					WHEN OTHERS => NULL;
+				END CASE;
+
 				tick_count <= 0; -- reset tick count
 				button_pressed_sig <= (OTHERS => '0');
 			ELSE
