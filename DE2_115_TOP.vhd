@@ -119,7 +119,11 @@ ARCHITECTURE structural OF DE2_115_TOP IS
 	-- Note stage outputs
 	SIGNAL notes_matrix : note_matrix_t;
 	SIGNAL score : INTEGER;
+	SIGNAL best_score : INTEGER := 0;
 	SIGNAL note_offset : INTEGER RANGE 0 TO NOTE_HEIGHT;
+	SIGNAL reset_game_tick : STD_LOGIC := '0';
+	SIGNAL reset_pending : STD_LOGIC := '0';
+	SIGNAL sw0_prev : STD_LOGIC := '0';
 
         -- VGA Signals
         SIGNAL red_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
@@ -147,12 +151,32 @@ BEGIN
 	PROCESS (CLOCK_50)
 	BEGIN
 		IF rising_edge(CLOCK_50) THEN
+			game_tick <= '0';
+			reset_game_tick <= '0';
+
+			IF SW(0) /= sw0_prev THEN
+				sw0_prev <= SW(0);
+				reset_pending <= '1';
+			END IF;
+
 			IF game_tick_counter = CLOCK_DIVIDER - 1 THEN
 				game_tick <= '1';
 				game_tick_counter <= 0;
+				IF reset_pending = '1' THEN
+					reset_game_tick <= '1';
+					reset_pending <= '0';
+				END IF;
 			ELSE
-				game_tick <= '0';
 				game_tick_counter <= game_tick_counter + 1;
+			END IF;
+		END IF;
+	END PROCESS;
+
+	PROCESS (CLOCK_50)
+	BEGIN
+		IF rising_edge(CLOCK_50) THEN
+			IF score > best_score THEN
+				best_score <= score;
 			END IF;
 		END IF;
 	END PROCESS;
@@ -201,6 +225,7 @@ BEGIN
 	note_stage_inst : ENTITY work.note_stage
 		PORT MAP(
 			game_tick => game_tick,
+			reset_game => reset_game_tick,
 			buttons => buttons_debounced,
 			notes_matrix => notes_matrix,
 			score => score,
