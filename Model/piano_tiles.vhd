@@ -26,11 +26,11 @@ BEGIN
         BEGIN
                 IF rising_edge(clk) THEN
                         next_notes := notes; -- Default to hold current value
-                        
+
                         IF shift_notes = '1' THEN
                                 -- move notes down one position (0 -> 1 -> 2 ... -> 7)
                                 next_notes := next_notes(NOTE_COUNT - 2 DOWNTO 0) & '0';
-                                
+
                                 -- add a new note at the top if requested
                                 IF add_note = '1' THEN
                                         next_notes(0) := '1';
@@ -78,11 +78,11 @@ ARCHITECTURE rtl OF note_stage IS
 	-- pulse to shift all lanes by one note
 	SIGNAL shift_notes_sig : STD_LOGIC := '0';
 
-        -- one add pulse per lane
-        SIGNAL add_note_sig : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
-        
-        -- clear bottom pulse per lane
-        SIGNAL clear_bottom_sig : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
+	-- one add pulse per lane
+	SIGNAL add_note_sig : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
+
+	-- clear bottom pulse per lane
+	SIGNAL clear_bottom_sig : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
 
 	-- counts game ticks between note shifts
 	SIGNAL tick_count : INTEGER RANGE 0 TO NOTE_HEIGHT := 0;
@@ -156,10 +156,15 @@ BEGIN
                                 IF buttons(i) = '1' AND notes_matrix_sig(i)(NOTE_COUNT - 1) = '1' THEN
                                         -- score increases by how close the note is to the bottom
                                         score_signal <= score_signal + NOTE_HEIGHT - tick_count;
-                                        
+
                                         -- tell the lane to erase the note so it can't be scored again
                                         clear_bottom_sig(i) <= '1';
                                 END IF;
+
+								IF buttons(i) = '1' AND notes_matrix_sig(i)(NOTE_COUNT - 1) = '0' THEN
+									-- penalize for pressing when no note is there
+									score_signal <= score_signal - 20;
+								END IF;
                         END LOOP;
 
 			IF tick_count = NOTE_HEIGHT THEN
