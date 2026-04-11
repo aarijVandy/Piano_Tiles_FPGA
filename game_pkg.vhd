@@ -13,7 +13,9 @@ package game_pkg is
     constant LANE_WIDTH    : integer := 60;
 
     -- notes
-    constant NOTE_COUNT    : integer := 8;
+    constant NOTE_VISIBLE  : integer := 8;  -- rows shown on screen
+    constant NOTE_BUFFER   : integer := 1;  -- rows hidden above screen (slide-in zone)
+    constant NOTE_COUNT    : integer := NOTE_VISIBLE + NOTE_BUFFER;  -- total array rows
     constant NOTE_HEIGHT   : integer := 20;
     -- constant NOTE_SPEED    : integer := 4;
 

@@ -19,7 +19,7 @@ END tile_renderer;
 ARCHITECTURE behavior OF tile_renderer IS
     CONSTANT LANE_START_X : integer := (SCREEN_WIDTH / 2) - ((LANE_COUNT * LANE_WIDTH) / 2);
     CONSTANT LANE_END_X   : integer := LANE_START_X + (LANE_COUNT * LANE_WIDTH);
-    CONSTANT NOTE_PX_H    : integer := SCREEN_HEIGHT / NOTE_COUNT;
+    CONSTANT NOTE_PX_H    : integer := SCREEN_HEIGHT / NOTE_VISIBLE;
 BEGIN
     PROCESS (pixel_column, pixel_row, notes_matrix, note_offset, video_on)
         VARIABLE p_x : integer;
@@ -46,8 +46,9 @@ BEGIN
                 END IF;
 
                 -- Draw lanes and notes
-                IF note_idx >= 0 AND note_idx < NOTE_COUNT THEN
-                    IF notes_matrix(lane_idx)(note_idx) = '1' THEN
+                IF note_idx >= 0 AND note_idx < NOTE_VISIBLE THEN
+                    -- Visible area: array index is offset by NOTE_BUFFER (index 0 is the slide-in buffer)
+                    IF notes_matrix(lane_idx)(note_idx + NOTE_BUFFER) = '1' THEN
                         -- Draw Note (Black)
                         Red   <= x"00";
                         Green <= x"00";
@@ -58,8 +59,20 @@ BEGIN
                         Green <= x"FF";
                         Blue  <= x"FF";
                     END IF;
+                ELSIF note_idx = -1 THEN
+                    -- Buffer zone: top-of-screen pixels where array index 0 slides in from above.
+                    -- y_offset grows each frame so this region expands until the shift fires.
+                    IF notes_matrix(lane_idx)(0) = '1' THEN
+                        Red   <= x"00";
+                        Green <= x"00";
+                        Blue  <= x"00";
+                    ELSE
+                        Red   <= x"FF";
+                        Green <= x"FF";
+                        Blue  <= x"FF";
+                    END IF;
                 ELSE
-                    -- empty space at the top above the scrolling note
+                    -- Below visible area (note_idx >= NOTE_VISIBLE): should not occur
                     Red   <= x"EE";
                     Green <= x"EE";
                     Blue  <= x"EE";
