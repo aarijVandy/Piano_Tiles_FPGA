@@ -175,7 +175,7 @@ BEGIN
 						clear_bottom_sig(i) <= '1';
 					ELSE
 						-- penalize for pressing when no note is there
-						score_next := score_next - 120;
+						score_next := score_next - 10;
 					END IF;
 				END IF;
 			END LOOP;
