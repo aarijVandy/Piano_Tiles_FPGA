@@ -174,9 +174,6 @@ ARCHITECTURE structural OF DE2_115_TOP IS
         SIGNAL red_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
         SIGNAL green_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
         SIGNAL blue_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
-        SIGNAL tile_r : STD_LOGIC_VECTOR(7 DOWNTO 0);
-        SIGNAL tile_g : STD_LOGIC_VECTOR(7 DOWNTO 0);
-        SIGNAL tile_b : STD_LOGIC_VECTOR(7 DOWNTO 0);
         SIGNAL vga_r_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
         SIGNAL vga_g_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
         SIGNAL vga_b_int : STD_LOGIC_VECTOR(7 DOWNTO 0);
@@ -393,7 +390,6 @@ BEGIN
 
 	vga_score_display_inst : ENTITY work.vga_score_display
 		PORT MAP(
-			clk => pixel_clock_int,
 			pixel_row => pixel_row_int,
 			pixel_column => pixel_column_int,
 			score_ones => score_ones,
