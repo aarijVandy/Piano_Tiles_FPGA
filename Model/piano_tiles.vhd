@@ -138,9 +138,9 @@ ARCHITECTURE rtl OF note_stage IS
 	-- score register
 	SIGNAL score_signal : INTEGER := 25;
 	SIGNAL max_score_sig : INTEGER := 25;
-	
+
 	SIGNAL total_game_ticks : INTEGER := 0;
-	SIGNAL current_penalty : INTEGER := 10;
+	SIGNAL incorrect_penalty : INTEGER := 10;
 	SIGNAL missed_penalty : INTEGER := 5;
 
 	-- random lane selection (32-bit LFSR output)
@@ -148,7 +148,7 @@ ARCHITECTURE rtl OF note_stage IS
 
 BEGIN
 
-	current_penalty <= 10 + (total_game_ticks / 25);
+	incorrect_penalty <= 10 + (total_game_ticks / 25);
 	missed_penalty <= 5 + (total_game_ticks / 120);
 
 	-- Lane instances
@@ -193,7 +193,7 @@ BEGIN
 			add_note => add_note_sig(3),
 			mark_bottom_hit => mark_bottom_hit_sig(3),
 			notes_out => notes_matrix_sig(3),
-			hits_out => hit_matrix_sig(3)	
+			hits_out => hit_matrix_sig(3)
 		);
 
 	-- Randomizer instance (32-bit LFSR)
@@ -221,7 +221,7 @@ BEGIN
 
 			IF reset_game = '1' THEN
 				score_signal <= 25;
-				tick_count <= 0;	
+				tick_count <= 0;
 				button_pressed_sig <= (OTHERS => '0');
 				total_game_ticks <= 0;
 			ELSIF score_signal > 0 THEN
@@ -245,7 +245,7 @@ BEGIN
 							tile_hit_this_cycle(i) := '1';
 						ELSE
 							-- penalize progressively for pressing when no note is there
-							score_next := score_next - current_penalty;
+							score_next := score_next - incorrect_penalty;
 						END IF;
 					END IF;
 				END LOOP;
@@ -263,7 +263,7 @@ BEGIN
 					-- assert shift one cycle early so note_lane shifts on the same edge
 					-- that tick_count resets to 0, keeping note_offset and notes_matrix in sync
 					shift_notes_sig <= '1';
-					
+
 					-- Check missed tiles falling off
 					FOR i IN 0 TO LANE_COUNT - 1 LOOP
 						IF notes_matrix_sig(i)(NOTE_COUNT - 1) = '1' THEN
@@ -272,7 +272,7 @@ BEGIN
 							END IF;
 						END IF;
 					END LOOP;
-					
+
 					-- 6-bit randomness distribution (0 to 63)
 					-- 81% Single, 9% Double, 6% Empty, 3% Triple
 					rand_val := to_integer(unsigned(rand_lane_bits(5 DOWNTO 0)));
@@ -282,7 +282,7 @@ BEGIN
 						WHEN 13 TO 25 => add_note_sig(1) <= '1';
 						WHEN 26 TO 38 => add_note_sig(2) <= '1';
 						WHEN 39 TO 51 => add_note_sig(3) <= '1';
-						
+
 						-- Double Tiles (Rare)
 						WHEN 52 => add_note_sig(0) <= '1'; add_note_sig(1) <= '1';
 						WHEN 53 => add_note_sig(1) <= '1'; add_note_sig(2) <= '1';
@@ -290,16 +290,16 @@ BEGIN
 						WHEN 55 => add_note_sig(0) <= '1'; add_note_sig(2) <= '1';
 						WHEN 56 => add_note_sig(1) <= '1'; add_note_sig(3) <= '1';
 						WHEN 57 => add_note_sig(0) <= '1'; add_note_sig(3) <= '1';
-						
+
 						-- No Tiles / Empty Row breather (Very Rare)
 						WHEN 58 TO 61 => NULL;
-						
+
 						-- Triple Tiles (Exceptionally Rare)
 						WHEN 62 => add_note_sig(0) <= '1'; add_note_sig(1) <= '1'; add_note_sig(2) <= '1';
 						WHEN 63 => add_note_sig(1) <= '1'; add_note_sig(2) <= '1'; add_note_sig(3) <= '1';
 						WHEN OTHERS => NULL;
 					END CASE;
-					
+
 					tick_count <= NOTE_HEIGHT;
 					button_pressed_sig <= button_pressed_next;
 				ELSE
