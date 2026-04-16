@@ -302,25 +302,32 @@ BEGIN
 					END LOOP;
 
 					-- ---- Tile generation (6-bit random, 0-63) ----------------
-					-- EASY MODE distribution (for testing -- revert this commit to restore normal difficulty):
-					--   ~87.5% single  (56/64),  ~9.4% empty  (6/64)
-					--   ~ 3.1% double   (2/64),    0%  triple  (removed)
+					--   ~81.2% single  (52/64 - balanced 13 per lane)
+					--   ~ 7.8% empty   (5/64)
+					--   ~ 9.4% double  (6/64 - perfectly balanced covering all 6 pair combinations)
+					--   ~ 1.5% triple  (1/64)
 					rand_val := to_integer(unsigned(rand_lane_bits(5 DOWNTO 0)));
 					CASE rand_val IS
-						-- Single Tiles (dominant -- 14 values per lane)
-						WHEN 0  TO 13 => add_note_sig(0) <= '1';
-						WHEN 14 TO 27 => add_note_sig(1) <= '1';
-						WHEN 28 TO 41 => add_note_sig(2) <= '1';
-						WHEN 42 TO 55 => add_note_sig(3) <= '1';
+						-- Single Tiles (Common)
+						WHEN 0  TO 12 => add_note_sig(0) <= '1';
+						WHEN 13 TO 25 => add_note_sig(1) <= '1';
+						WHEN 26 TO 38 => add_note_sig(2) <= '1';
+						WHEN 39 TO 51 => add_note_sig(3) <= '1';
 
-						-- Empty rows / breathing room (more frequent in easy mode)
-						WHEN 56 TO 61 => NULL;
+						-- Double Tiles (~9.4% - All 6 combinations)
+						WHEN 52 => add_note_sig(0) <= '1'; add_note_sig(1) <= '1';
+						WHEN 53 => add_note_sig(1) <= '1'; add_note_sig(2) <= '1';
+						WHEN 54 => add_note_sig(2) <= '1'; add_note_sig(3) <= '1';
+						WHEN 55 => add_note_sig(0) <= '1'; add_note_sig(2) <= '1';
+						WHEN 56 => add_note_sig(1) <= '1'; add_note_sig(3) <= '1';
+						WHEN 57 => add_note_sig(0) <= '1'; add_note_sig(3) <= '1';
 
-						-- Double Tiles (very rare in easy mode)
-						WHEN 62 => add_note_sig(0) <= '1'; add_note_sig(1) <= '1';
-						WHEN 63 => add_note_sig(2) <= '1'; add_note_sig(3) <= '1';
+						-- Empty rows / breathing room (~7.8%)
+						WHEN 58 TO 62 => NULL;
 
-						-- Triple Tiles: removed in easy mode
+						-- Triple Tiles (~1.5%)
+						WHEN 63 => add_note_sig(1) <= '1'; add_note_sig(2) <= '1'; add_note_sig(3) <= '1';
+
 						WHEN OTHERS => NULL;
 					END CASE;
 
