@@ -106,11 +106,23 @@ BEGIN
 			CHAR_T, CHAR_I, CHAR_L, CHAR_E
 		);
 
-		-- "MISS OR PRESS WRONG = SCORE PENALTY"  (35 chars, x=232, y=368)
-		CONSTANT I2_LEN : INTEGER := 35;
+		-- "LONGER COMBOS = MORE POINTS" (27 chars, y=368)
+		CONSTANT I2_LEN : INTEGER := 27;
 		CONSTANT I2_Y   : INTEGER := 368;
 		CONSTANT I2_X   : INTEGER := 512 - (I2_LEN * 8 * SCALE_I) / 2;
-		CONSTANT I2_TEXT : char_array_t(0 TO 34) := (
+		CONSTANT I2_TEXT : char_array_t(0 TO 26) := (
+			CHAR_L, CHAR_O, CHAR_N, CHAR_G, CHAR_E, CHAR_R, CHAR_SPACE,
+			CHAR_C, CHAR_O, CHAR_M, CHAR_B, CHAR_O, CHAR_S, CHAR_SPACE,
+			CHAR_EQUALS, CHAR_SPACE,
+			CHAR_M, CHAR_O, CHAR_R, CHAR_E, CHAR_SPACE,
+			CHAR_P, CHAR_O, CHAR_I, CHAR_N, CHAR_T, CHAR_S
+		);
+
+		-- "MISS OR PRESS WRONG = SCORE PENALTY"  (35 chars, y=392)
+		CONSTANT I3_LEN : INTEGER := 35;
+		CONSTANT I3_Y   : INTEGER := 392;
+		CONSTANT I3_X   : INTEGER := 512 - (I3_LEN * 8 * SCALE_I) / 2;
+		CONSTANT I3_TEXT : char_array_t(0 TO 34) := (
 			CHAR_M, CHAR_I, CHAR_S, CHAR_S, CHAR_SPACE,
 			CHAR_O, CHAR_R, CHAR_SPACE,
 			CHAR_P, CHAR_R, CHAR_E, CHAR_S, CHAR_S, CHAR_SPACE,
@@ -120,11 +132,11 @@ BEGIN
 			CHAR_P, CHAR_E, CHAR_N, CHAR_A, CHAR_L, CHAR_T, CHAR_Y
 		);
 
-		-- "SCORE PENALTY INCREASES OVER TIME"  (33 chars, x=248, y=392)
-		CONSTANT I3_LEN : INTEGER := 33;
-		CONSTANT I3_Y   : INTEGER := 392;
-		CONSTANT I3_X   : INTEGER := 512 - (I3_LEN * 8 * SCALE_I) / 2;
-		CONSTANT I3_TEXT : char_array_t(0 TO 32) := (
+		-- "SCORE PENALTY INCREASES OVER TIME"  (33 chars, y=416)
+		CONSTANT I4_LEN : INTEGER := 33;
+		CONSTANT I4_Y   : INTEGER := 416;
+		CONSTANT I4_X   : INTEGER := 512 - (I4_LEN * 8 * SCALE_I) / 2;
+		CONSTANT I4_TEXT : char_array_t(0 TO 32) := (
 			CHAR_S, CHAR_C, CHAR_O, CHAR_R, CHAR_E, CHAR_SPACE,
 			CHAR_P, CHAR_E, CHAR_N, CHAR_A, CHAR_L, CHAR_T, CHAR_Y, CHAR_SPACE,
 			CHAR_I, CHAR_N, CHAR_C, CHAR_R, CHAR_E, CHAR_A, CHAR_S, CHAR_E, CHAR_S, CHAR_SPACE,
@@ -132,11 +144,11 @@ BEGIN
 			CHAR_T, CHAR_I, CHAR_M, CHAR_E
 		);
 
-		-- "SW0 = RESET GAME"  (16 chars, x=384, y=416)
-		CONSTANT I4_LEN : INTEGER := 16;
-		CONSTANT I4_Y   : INTEGER := 416;
-		CONSTANT I4_X   : INTEGER := 512 - (I4_LEN * 8 * SCALE_I) / 2;
-		CONSTANT I4_TEXT : char_array_t(0 TO 15) := (
+		-- "SW0 = RESET GAME"  (16 chars, y=440)
+		CONSTANT I5_LEN : INTEGER := 16;
+		CONSTANT I5_Y   : INTEGER := 440;
+		CONSTANT I5_X   : INTEGER := 512 - (I5_LEN * 8 * SCALE_I) / 2;
+		CONSTANT I5_TEXT : char_array_t(0 TO 15) := (
 			-- '0' digit is encoded as integer 0
 			CHAR_S, CHAR_W, 0, CHAR_SPACE,
 			CHAR_EQUALS, CHAR_SPACE,
@@ -241,6 +253,20 @@ BEGIN
 						font_char   <= STD_LOGIC_VECTOR(to_unsigned(I4_TEXT(char_idx), 6));
 						cpx := ((p_x - I4_X) MOD (8 * SCALE_I)) / SCALE_I;
 						cpy := (p_y - I4_Y)                       / SCALE_I;
+					END IF;
+				END IF;
+			END IF;
+
+			-- ---- Instruction line 5 (SCALE=2, gray) --------------------------
+			IF p_y >= I5_Y AND p_y < I5_Y + 8 * SCALE_I THEN
+				IF p_x >= I5_X AND p_x < I5_X + I5_LEN * 8 * SCALE_I THEN
+					char_idx := (p_x - I5_X) / (8 * SCALE_I);
+					IF I5_TEXT(char_idx) /= CHAR_SPACE THEN
+						draw_text   := true;
+						text_colour := x"CCCCCC";
+						font_char   <= STD_LOGIC_VECTOR(to_unsigned(I5_TEXT(char_idx), 6));
+						cpx := ((p_x - I5_X) MOD (8 * SCALE_I)) / SCALE_I;
+						cpy := (p_y - I5_Y)                       / SCALE_I;
 					END IF;
 				END IF;
 			END IF;
