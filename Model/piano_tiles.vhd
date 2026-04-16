@@ -293,29 +293,25 @@ BEGIN
 					END LOOP;
 
 					-- ---- Tile generation (6-bit random, 0-63) ----------------
-					-- Distribution: ~81% single, ~9% double, ~6% empty, ~3% triple
+					-- EASY MODE distribution (for testing -- revert this commit to restore normal difficulty):
+					--   ~87.5% single  (56/64),  ~9.4% empty  (6/64)
+					--   ~ 3.1% double   (2/64),    0%  triple  (removed)
 					rand_val := to_integer(unsigned(rand_lane_bits(5 DOWNTO 0)));
 					CASE rand_val IS
-						-- Single Tiles (Common)
-						WHEN 0 TO 12  => add_note_sig(0) <= '1';
-						WHEN 13 TO 25 => add_note_sig(1) <= '1';
-						WHEN 26 TO 38 => add_note_sig(2) <= '1';
-						WHEN 39 TO 51 => add_note_sig(3) <= '1';
+						-- Single Tiles (dominant -- 14 values per lane)
+						WHEN 0  TO 13 => add_note_sig(0) <= '1';
+						WHEN 14 TO 27 => add_note_sig(1) <= '1';
+						WHEN 28 TO 41 => add_note_sig(2) <= '1';
+						WHEN 42 TO 55 => add_note_sig(3) <= '1';
 
-						-- Double Tiles (Rare)
-						WHEN 52 => add_note_sig(0) <= '1'; add_note_sig(1) <= '1';
-						WHEN 53 => add_note_sig(1) <= '1'; add_note_sig(2) <= '1';
-						WHEN 54 => add_note_sig(2) <= '1'; add_note_sig(3) <= '1';
-						WHEN 55 => add_note_sig(0) <= '1'; add_note_sig(2) <= '1';
-						WHEN 56 => add_note_sig(1) <= '1'; add_note_sig(3) <= '1';
-						WHEN 57 => add_note_sig(0) <= '1'; add_note_sig(3) <= '1';
+						-- Empty rows / breathing room (more frequent in easy mode)
+						WHEN 56 TO 61 => NULL;
 
-						-- No Tiles / Empty Row breather (Very Rare)
-						WHEN 58 TO 61 => NULL;
+						-- Double Tiles (very rare in easy mode)
+						WHEN 62 => add_note_sig(0) <= '1'; add_note_sig(1) <= '1';
+						WHEN 63 => add_note_sig(2) <= '1'; add_note_sig(3) <= '1';
 
-						-- Triple Tiles (Exceptionally Rare)
-						WHEN 62 => add_note_sig(0) <= '1'; add_note_sig(1) <= '1'; add_note_sig(2) <= '1';
-						WHEN 63 => add_note_sig(1) <= '1'; add_note_sig(2) <= '1'; add_note_sig(3) <= '1';
+						-- Triple Tiles: removed in easy mode
 						WHEN OTHERS => NULL;
 					END CASE;
 
