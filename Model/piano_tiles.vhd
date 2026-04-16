@@ -256,7 +256,13 @@ BEGIN
 
 						IF notes_matrix_sig(i)(NOTE_COUNT - 1) = '1' AND hit_matrix_sig(i)(NOTE_COUNT - 1) = '0' THEN
 							-- Correct hit: note is in the absolute bottom zone
-							score_next := score_next + NOTE_HEIGHT - tick_count;
+							-- Score bonus rewards accuracy (hitting when tile is perfectly centered over the hit bar)
+							IF tick_count <= (NOTE_HEIGHT / 2) THEN
+								score_next := score_next + NOTE_HEIGHT - ((NOTE_HEIGHT / 2) - tick_count);
+							ELSE
+								score_next := score_next + NOTE_HEIGHT - (tick_count - (NOTE_HEIGHT / 2));
+							END IF;
+							
 							mark_hit_sig(i) <= '1';
 							tile_hit_this_cycle(i) := '1';
 							combo_next := combo_next + 1; -- extend the streak
