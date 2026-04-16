@@ -51,10 +51,10 @@ BEGIN
                     -- Visible area: array index is offset by NOTE_BUFFER (index 0 is the slide-in buffer)
                     IF notes_matrix(lane_idx)(note_idx + NOTE_BUFFER) = '1' THEN
                         IF hit_matrix(lane_idx)(note_idx + NOTE_BUFFER) = '1' THEN
-                            -- Draw hit note (Gray)
-                            Red   <= x"88";
-                            Green <= x"88";
-                            Blue  <= x"88";
+                            -- Draw hit note (Green)
+                            Red   <= x"33";
+                            Green <= x"CC";
+                            Blue  <= x"33";
                         ELSE
                             -- Draw active note (Black)
                             Red   <= x"00";
