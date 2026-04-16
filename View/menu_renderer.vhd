@@ -164,6 +164,9 @@ BEGIN
 		draw_text   := false;
 		text_colour := x"FFFFFF"; -- default white (overridden per region)
 		font_char   <= (OTHERS => '0');
+		-- Initialize to 0 in all paths to prevent latch inference
+		cpx := 0;
+		cpy := 0;
 
 		-- Background: same blue-gray as the game sidebar
 		red_out   <= x"44";
