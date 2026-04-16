@@ -53,8 +53,6 @@ BEGIN
 			IF mark_hit = '1' THEN
 				IF next_notes(NOTE_COUNT - 1) = '1' AND next_hits(NOTE_COUNT - 1) = '0' THEN
 					next_hits(NOTE_COUNT - 1) := '1';
-				ELSIF next_notes(NOTE_COUNT - 2) = '1' AND next_hits(NOTE_COUNT - 2) = '0' THEN
-					next_hits(NOTE_COUNT - 2) := '1';
 				END IF;
 			END IF;
 
@@ -258,12 +256,6 @@ BEGIN
 
 						IF notes_matrix_sig(i)(NOTE_COUNT - 1) = '1' AND hit_matrix_sig(i)(NOTE_COUNT - 1) = '0' THEN
 							-- Correct hit: note is in the absolute bottom zone
-							score_next := score_next + NOTE_HEIGHT - tick_count;
-							mark_hit_sig(i) <= '1';
-							tile_hit_this_cycle(i) := '1';
-							combo_next := combo_next + 1; -- extend the streak
-						ELSIF notes_matrix_sig(i)(NOTE_COUNT - 2) = '1' AND hit_matrix_sig(i)(NOTE_COUNT - 2) = '0' THEN
-							-- Correct hit early: extended hit zone (one row up)
 							score_next := score_next + NOTE_HEIGHT - tick_count;
 							mark_hit_sig(i) <= '1';
 							tile_hit_this_cycle(i) := '1';

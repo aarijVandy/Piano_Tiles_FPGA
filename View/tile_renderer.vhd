@@ -62,8 +62,8 @@ BEGIN
                             Blue  <= x"00";
                         END IF;
                     ELSE
-                        -- Highlight valid hit zone (Bottom 2 rows) slightly dim
-                        IF note_idx >= NOTE_VISIBLE - 2 THEN
+                        -- Highlight valid hit zone (Bottom row) using static screen coordinates
+                        IF p_y >= SCREEN_HEIGHT - NOTE_PX_H THEN
                             Red   <= x"E8";
                             Green <= x"E8";
                             Blue  <= x"E8";
