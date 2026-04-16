@@ -51,10 +51,10 @@ BEGIN
                     -- Visible area: array index is offset by NOTE_BUFFER (index 0 is the slide-in buffer)
                     IF notes_matrix(lane_idx)(note_idx + NOTE_BUFFER) = '1' THEN
                         IF hit_matrix(lane_idx)(note_idx + NOTE_BUFFER) = '1' THEN
-                            -- Draw hit note (Gray)
-                            Red   <= x"88";
-                            Green <= x"88";
-                            Blue  <= x"88";
+                            -- Draw hit note (Green)
+                            Red   <= x"33";
+                            Green <= x"CC";
+                            Blue  <= x"33";
                         ELSE
                             -- Draw active note (Black)
                             Red   <= x"00";
@@ -62,10 +62,17 @@ BEGIN
                             Blue  <= x"00";
                         END IF;
                     ELSE
-                        -- Draw empty lane (White)
-                        Red   <= x"FF";
-                        Green <= x"FF";
-                        Blue  <= x"FF";
+                        -- Highlight valid hit zone (Bottom row) using static screen coordinates
+                        IF p_y >= SCREEN_HEIGHT - NOTE_PX_H THEN
+                            Red   <= x"E8";
+                            Green <= x"E8";
+                            Blue  <= x"E8";
+                        ELSE
+                            -- Draw empty lane (White)
+                            Red   <= x"FF";
+                            Green <= x"FF";
+                            Blue  <= x"FF";
+                        END IF;
                     END IF;
                 ELSIF note_idx = -1 THEN
                     -- Buffer zone: top-of-screen pixels where array index 0 slides in from above.

@@ -15,7 +15,7 @@ ENTITY note_lane IS
 		reset_game : IN STD_LOGIC;
 		shift_notes : IN STD_LOGIC;
 		add_note : IN STD_LOGIC;
-		mark_bottom_hit : IN STD_LOGIC;
+		mark_hit : IN STD_LOGIC;
 		notes_out : OUT STD_LOGIC_VECTOR(NOTE_COUNT - 1 DOWNTO 0);
 		hits_out : OUT STD_LOGIC_VECTOR(NOTE_COUNT - 1 DOWNTO 0)
 	);
@@ -49,9 +49,11 @@ BEGIN
 				END IF;
 			END IF;
 
-			-- Mark bottom tile as hit so renderer can draw it gray
-			IF mark_bottom_hit = '1' AND next_notes(NOTE_COUNT - 1) = '1' THEN
-				next_hits(NOTE_COUNT - 1) := '1';
+			-- Mark the lowest tile inside the valid hit zone 
+			IF mark_hit = '1' THEN
+				IF next_notes(NOTE_COUNT - 1) = '1' AND next_hits(NOTE_COUNT - 1) = '0' THEN
+					next_hits(NOTE_COUNT - 1) := '1';
+				END IF;
 			END IF;
 
 				notes <= next_notes;
@@ -107,7 +109,7 @@ ARCHITECTURE rtl OF note_stage IS
 			reset_game : IN STD_LOGIC;
 			shift_notes : IN STD_LOGIC;
 			add_note : IN STD_LOGIC;
-			mark_bottom_hit : IN STD_LOGIC;
+			mark_hit : IN STD_LOGIC;
 			notes_out : OUT STD_LOGIC_VECTOR(NOTE_COUNT - 1 DOWNTO 0);
 			hits_out : OUT STD_LOGIC_VECTOR(NOTE_COUNT - 1 DOWNTO 0)
 		);
@@ -132,8 +134,8 @@ ARCHITECTURE rtl OF note_stage IS
 	-- one add pulse per lane
 	SIGNAL add_note_sig : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
 
-	-- mark bottom tile hit pulse per lane
-	SIGNAL mark_bottom_hit_sig : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
+	-- mark hit pulse per lane (targets the lowest tile in valid zone)
+	SIGNAL mark_hit_sig : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
 
 	-- tracks whether each lane button has already been scored this note cycle
 	SIGNAL button_pressed_sig : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
@@ -141,9 +143,11 @@ ARCHITECTURE rtl OF note_stage IS
 	-- counts game ticks between note shifts
 	SIGNAL tick_count : INTEGER RANGE 0 TO NOTE_HEIGHT := 0;
 
+	CONSTANT INITIAL_SCORE : INTEGER := 35;
+	
 	-- score register and running maximum
-	SIGNAL score_signal : INTEGER := 25;
-	SIGNAL max_score_sig : INTEGER := 25;
+	SIGNAL score_signal : INTEGER := INITIAL_SCORE;
+	SIGNAL max_score_sig : INTEGER := 0;
 
 	-- combo counters: current streak and session best
 	SIGNAL combo_sig      : INTEGER := 0;
@@ -170,7 +174,7 @@ BEGIN
 			reset_game => reset_game,
 			shift_notes => shift_notes_sig,
 			add_note => add_note_sig(0),
-			mark_bottom_hit => mark_bottom_hit_sig(0),
+			mark_hit => mark_hit_sig(0),
 			notes_out => notes_matrix_sig(0),
 			hits_out => hit_matrix_sig(0)
 		);
@@ -181,7 +185,7 @@ BEGIN
 			reset_game => reset_game,
 			shift_notes => shift_notes_sig,
 			add_note => add_note_sig(1),
-			mark_bottom_hit => mark_bottom_hit_sig(1),
+			mark_hit => mark_hit_sig(1),
 			notes_out => notes_matrix_sig(1),
 			hits_out => hit_matrix_sig(1)
 		);
@@ -192,7 +196,7 @@ BEGIN
 			reset_game => reset_game,
 			shift_notes => shift_notes_sig,
 			add_note => add_note_sig(2),
-			mark_bottom_hit => mark_bottom_hit_sig(2),
+			mark_hit => mark_hit_sig(2),
 			notes_out => notes_matrix_sig(2),
 			hits_out => hit_matrix_sig(2)
 		);
@@ -203,7 +207,7 @@ BEGIN
 			reset_game => reset_game,
 			shift_notes => shift_notes_sig,
 			add_note => add_note_sig(3),
-			mark_bottom_hit => mark_bottom_hit_sig(3),
+			mark_hit => mark_hit_sig(3),
 			notes_out => notes_matrix_sig(3),
 			hits_out => hit_matrix_sig(3)	
 		);
@@ -230,13 +234,13 @@ BEGIN
 			-- default: pulses are low unless asserted this cycle
 			shift_notes_sig <= '0';
 			add_note_sig <= (OTHERS => '0');
-			mark_bottom_hit_sig <= (OTHERS => '0');
+			mark_hit_sig <= (OTHERS => '0');
 
 			IF reset_game = '1' THEN
 				-- Reset all counters and trackers on game reset
-				score_signal <= 25;
+				score_signal <= INITIAL_SCORE;
 				tick_count <= 0;	
-				button_pressed_sig <= (OTHERS => '0');
+				button_pressed_sig <= buttons;
 				total_game_ticks <= 0;
 				combo_sig      <= 0;
 				best_combo_sig <= 0;
@@ -252,16 +256,22 @@ BEGIN
 					IF buttons(i) = '1' AND button_pressed_sig(i) = '0' THEN
 						button_pressed_next(i) := '1';
 
-						IF notes_matrix_sig(i)(NOTE_COUNT - 1) = '1' THEN
-							-- Correct hit: note is in the bottom zone
-							-- Score bonus decreases the longer we wait (the later the hit)
-							score_next := score_next + NOTE_HEIGHT - tick_count;
-							mark_bottom_hit_sig(i) <= '1';
+						IF notes_matrix_sig(i)(NOTE_COUNT - 1) = '1' AND hit_matrix_sig(i)(NOTE_COUNT - 1) = '0' THEN
+							-- Correct hit: note is in the absolute bottom zone
+							-- Score bonus rewards accuracy (hitting when tile is perfectly centered) + combo multiplier
+							IF tick_count <= (NOTE_HEIGHT / 2) THEN
+								score_next := score_next + NOTE_HEIGHT - ((NOTE_HEIGHT / 2) - tick_count) + (combo_sig / 4);
+							ELSE
+								score_next := score_next + NOTE_HEIGHT - (tick_count - (NOTE_HEIGHT / 2)) + (combo_sig / 4);
+							END IF;
+							
+							mark_hit_sig(i) <= '1';
 							tile_hit_this_cycle(i) := '1';
 							combo_next := combo_next + 1; -- extend the streak
 						ELSE
-							-- Wrong press: no note in bottom zone
-							score_next := score_next - current_penalty;
+							-- Wrong press: apply escalating penalty and break streak
+							current_penalty <= 10 + (total_game_ticks / 256);
+							score_next := score_next - (10 + (total_game_ticks / 256));
 							combo_next := 0;              -- break the streak
 						END IF;
 					END IF;
@@ -286,23 +296,27 @@ BEGIN
 					FOR i IN 0 TO LANE_COUNT - 1 LOOP
 						IF notes_matrix_sig(i)(NOTE_COUNT - 1) = '1' THEN
 							IF hit_matrix_sig(i)(NOTE_COUNT - 1) = '0' AND tile_hit_this_cycle(i) = '0' THEN
-								score_next := score_next - missed_penalty;
+								missed_penalty <= 10 + (total_game_ticks / 256);
+								score_next := score_next - (10 + (total_game_ticks / 256));
 								combo_next := 0; -- break the streak on a miss
 							END IF;
 						END IF;
 					END LOOP;
 
 					-- ---- Tile generation (6-bit random, 0-63) ----------------
-					-- Distribution: ~81% single, ~9% double, ~6% empty, ~3% triple
+					--   ~81.2% single  (52/64 - balanced 13 per lane)
+					--   ~ 7.8% empty   (5/64)
+					--   ~ 9.4% double  (6/64 - perfectly balanced covering all 6 pair combinations)
+					--   ~ 1.5% triple  (1/64)
 					rand_val := to_integer(unsigned(rand_lane_bits(5 DOWNTO 0)));
 					CASE rand_val IS
 						-- Single Tiles (Common)
-						WHEN 0 TO 12  => add_note_sig(0) <= '1';
+						WHEN 0  TO 12 => add_note_sig(0) <= '1';
 						WHEN 13 TO 25 => add_note_sig(1) <= '1';
 						WHEN 26 TO 38 => add_note_sig(2) <= '1';
 						WHEN 39 TO 51 => add_note_sig(3) <= '1';
 
-						-- Double Tiles (Rare)
+						-- Double Tiles (~9.4% - All 6 combinations)
 						WHEN 52 => add_note_sig(0) <= '1'; add_note_sig(1) <= '1';
 						WHEN 53 => add_note_sig(1) <= '1'; add_note_sig(2) <= '1';
 						WHEN 54 => add_note_sig(2) <= '1'; add_note_sig(3) <= '1';
@@ -310,12 +324,12 @@ BEGIN
 						WHEN 56 => add_note_sig(1) <= '1'; add_note_sig(3) <= '1';
 						WHEN 57 => add_note_sig(0) <= '1'; add_note_sig(3) <= '1';
 
-						-- No Tiles / Empty Row breather (Very Rare)
-						WHEN 58 TO 61 => NULL;
+						-- Empty rows / breathing room (~7.8%)
+						WHEN 58 TO 62 => NULL;
 
-						-- Triple Tiles (Exceptionally Rare)
-						WHEN 62 => add_note_sig(0) <= '1'; add_note_sig(1) <= '1'; add_note_sig(2) <= '1';
+						-- Triple Tiles (~1.5%)
 						WHEN 63 => add_note_sig(1) <= '1'; add_note_sig(2) <= '1'; add_note_sig(3) <= '1';
+
 						WHEN OTHERS => NULL;
 					END CASE;
 

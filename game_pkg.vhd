@@ -15,15 +15,15 @@ package game_pkg is
     -- Lane geometry
     -- -------------------------------------------------------------------------
     constant LANE_COUNT    : integer := 4;
-    constant LANE_WIDTH    : integer := 60;
+    constant LANE_WIDTH    : integer := 64; -- Refined from 128. Retains O(1) power-of-two shift optimization while keeping authentic piano key aesthetics. 
 
     -- -------------------------------------------------------------------------
     -- Note grid dimensions
     -- -------------------------------------------------------------------------
-    constant NOTE_VISIBLE  : integer := 8;  -- rows visible on screen
-    constant NOTE_BUFFER   : integer := 1;  -- hidden slide-in row above screen
+    constant NOTE_VISIBLE  : integer := 6;   -- 768px screen / 6 = 128px per vertical tile (perfect square). Replaces 96.
+    constant NOTE_BUFFER   : integer := 1;   -- hidden slide-in row above screen
     constant NOTE_COUNT    : integer := NOTE_VISIBLE + NOTE_BUFFER;
-    constant NOTE_HEIGHT   : integer := 20; -- game-ticks per note row
+    constant NOTE_HEIGHT   : integer := 16;  -- originally 20. Power of 2 optimizes cascading multiplier tick_counts!
 
     -- -------------------------------------------------------------------------
     -- Note matrix type: one std_logic_vector per lane
