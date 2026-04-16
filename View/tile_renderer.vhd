@@ -62,10 +62,17 @@ BEGIN
                             Blue  <= x"00";
                         END IF;
                     ELSE
-                        -- Draw empty lane (White)
-                        Red   <= x"FF";
-                        Green <= x"FF";
-                        Blue  <= x"FF";
+                        -- Highlight valid hit zone (Bottom 2 rows) slightly dim
+                        IF note_idx >= NOTE_VISIBLE - 2 THEN
+                            Red   <= x"E8";
+                            Green <= x"E8";
+                            Blue  <= x"E8";
+                        ELSE
+                            -- Draw empty lane (White)
+                            Red   <= x"FF";
+                            Green <= x"FF";
+                            Blue  <= x"FF";
+                        END IF;
                     END IF;
                 ELSIF note_idx = -1 THEN
                     -- Buffer zone: top-of-screen pixels where array index 0 slides in from above.

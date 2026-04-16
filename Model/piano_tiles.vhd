@@ -15,7 +15,7 @@ ENTITY note_lane IS
 		reset_game : IN STD_LOGIC;
 		shift_notes : IN STD_LOGIC;
 		add_note : IN STD_LOGIC;
-		mark_bottom_hit : IN STD_LOGIC;
+		mark_hit : IN STD_LOGIC;
 		notes_out : OUT STD_LOGIC_VECTOR(NOTE_COUNT - 1 DOWNTO 0);
 		hits_out : OUT STD_LOGIC_VECTOR(NOTE_COUNT - 1 DOWNTO 0)
 	);
@@ -49,9 +49,13 @@ BEGIN
 				END IF;
 			END IF;
 
-			-- Mark bottom tile as hit so renderer can draw it gray
-			IF mark_bottom_hit = '1' AND next_notes(NOTE_COUNT - 1) = '1' THEN
-				next_hits(NOTE_COUNT - 1) := '1';
+			-- Mark the lowest tile inside the valid hit zone 
+			IF mark_hit = '1' THEN
+				IF next_notes(NOTE_COUNT - 1) = '1' AND next_hits(NOTE_COUNT - 1) = '0' THEN
+					next_hits(NOTE_COUNT - 1) := '1';
+				ELSIF next_notes(NOTE_COUNT - 2) = '1' AND next_hits(NOTE_COUNT - 2) = '0' THEN
+					next_hits(NOTE_COUNT - 2) := '1';
+				END IF;
 			END IF;
 
 				notes <= next_notes;
@@ -107,7 +111,7 @@ ARCHITECTURE rtl OF note_stage IS
 			reset_game : IN STD_LOGIC;
 			shift_notes : IN STD_LOGIC;
 			add_note : IN STD_LOGIC;
-			mark_bottom_hit : IN STD_LOGIC;
+			mark_hit : IN STD_LOGIC;
 			notes_out : OUT STD_LOGIC_VECTOR(NOTE_COUNT - 1 DOWNTO 0);
 			hits_out : OUT STD_LOGIC_VECTOR(NOTE_COUNT - 1 DOWNTO 0)
 		);
@@ -132,8 +136,8 @@ ARCHITECTURE rtl OF note_stage IS
 	-- one add pulse per lane
 	SIGNAL add_note_sig : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
 
-	-- mark bottom tile hit pulse per lane
-	SIGNAL mark_bottom_hit_sig : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
+	-- mark hit pulse per lane (targets the lowest tile in valid zone)
+	SIGNAL mark_hit_sig : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
 
 	-- tracks whether each lane button has already been scored this note cycle
 	SIGNAL button_pressed_sig : STD_LOGIC_VECTOR(LANE_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
@@ -170,7 +174,7 @@ BEGIN
 			reset_game => reset_game,
 			shift_notes => shift_notes_sig,
 			add_note => add_note_sig(0),
-			mark_bottom_hit => mark_bottom_hit_sig(0),
+			mark_hit => mark_hit_sig(0),
 			notes_out => notes_matrix_sig(0),
 			hits_out => hit_matrix_sig(0)
 		);
@@ -181,7 +185,7 @@ BEGIN
 			reset_game => reset_game,
 			shift_notes => shift_notes_sig,
 			add_note => add_note_sig(1),
-			mark_bottom_hit => mark_bottom_hit_sig(1),
+			mark_hit => mark_hit_sig(1),
 			notes_out => notes_matrix_sig(1),
 			hits_out => hit_matrix_sig(1)
 		);
@@ -192,7 +196,7 @@ BEGIN
 			reset_game => reset_game,
 			shift_notes => shift_notes_sig,
 			add_note => add_note_sig(2),
-			mark_bottom_hit => mark_bottom_hit_sig(2),
+			mark_hit => mark_hit_sig(2),
 			notes_out => notes_matrix_sig(2),
 			hits_out => hit_matrix_sig(2)
 		);
@@ -203,7 +207,7 @@ BEGIN
 			reset_game => reset_game,
 			shift_notes => shift_notes_sig,
 			add_note => add_note_sig(3),
-			mark_bottom_hit => mark_bottom_hit_sig(3),
+			mark_hit => mark_hit_sig(3),
 			notes_out => notes_matrix_sig(3),
 			hits_out => hit_matrix_sig(3)	
 		);
@@ -230,7 +234,7 @@ BEGIN
 			-- default: pulses are low unless asserted this cycle
 			shift_notes_sig <= '0';
 			add_note_sig <= (OTHERS => '0');
-			mark_bottom_hit_sig <= (OTHERS => '0');
+			mark_hit_sig <= (OTHERS => '0');
 
 			IF reset_game = '1' THEN
 				-- Reset all counters and trackers on game reset
@@ -252,15 +256,20 @@ BEGIN
 					IF buttons(i) = '1' AND button_pressed_sig(i) = '0' THEN
 						button_pressed_next(i) := '1';
 
-						IF notes_matrix_sig(i)(NOTE_COUNT - 1) = '1' THEN
-							-- Correct hit: note is in the bottom zone
-							-- Score bonus decreases the longer we wait (the later the hit)
+						IF notes_matrix_sig(i)(NOTE_COUNT - 1) = '1' AND hit_matrix_sig(i)(NOTE_COUNT - 1) = '0' THEN
+							-- Correct hit: note is in the absolute bottom zone
 							score_next := score_next + NOTE_HEIGHT - tick_count;
-							mark_bottom_hit_sig(i) <= '1';
+							mark_hit_sig(i) <= '1';
+							tile_hit_this_cycle(i) := '1';
+							combo_next := combo_next + 1; -- extend the streak
+						ELSIF notes_matrix_sig(i)(NOTE_COUNT - 2) = '1' AND hit_matrix_sig(i)(NOTE_COUNT - 2) = '0' THEN
+							-- Correct hit early: extended hit zone (one row up)
+							score_next := score_next + NOTE_HEIGHT - tick_count;
+							mark_hit_sig(i) <= '1';
 							tile_hit_this_cycle(i) := '1';
 							combo_next := combo_next + 1; -- extend the streak
 						ELSE
-							-- Wrong press: no note in bottom zone
+							-- Wrong press: no unhit note in valid zones
 							score_next := score_next - current_penalty;
 							combo_next := 0;              -- break the streak
 						END IF;
