@@ -18,7 +18,7 @@ ENTITY tile_renderer IS
 END tile_renderer;
 
 ARCHITECTURE behavior OF tile_renderer IS
-    CONSTANT LANE_START_X : integer := (SCREEN_WIDTH / 2) - ((LANE_COUNT * LANE_WIDTH) / 2);
+    CONSTANT LANE_START_X : integer := 128; -- shifted left to accommodate Score UI on the right
     CONSTANT LANE_END_X   : integer := LANE_START_X + (LANE_COUNT * LANE_WIDTH);
     CONSTANT NOTE_PX_H    : integer := SCREEN_HEIGHT / NOTE_VISIBLE;
 BEGIN
