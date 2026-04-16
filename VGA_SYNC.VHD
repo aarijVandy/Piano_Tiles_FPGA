@@ -118,15 +118,20 @@ BEGIN
 		horiz_sync_out <= horiz_sync;
 		vert_sync_out <= vert_sync;
 
+		-- Register RGB outputs to eliminate combinational glitches and shadow artifacts on the DAC
+		IF video_on_int = '1' THEN
+			red_out <= red;
+			green_out <= green;
+			blue_out <= blue;
+		ELSE
+			red_out <= (OTHERS => '0');
+			green_out <= (OTHERS => '0');
+			blue_out <= (OTHERS => '0');
+		END IF;
+
 	END PROCESS;
 
-	-- 		Also turn off RGB color signals at edge of screen during vertical and horizontal retrace
-	red_out <= red WHEN video_on_int = '1' ELSE
-		(OTHERS => '0');
-	green_out <= green WHEN video_on_int = '1' ELSE
-		(OTHERS => '0');
-	blue_out <= blue WHEN video_on_int = '1' ELSE
-		(OTHERS => '0');
+	-- Combinational assignments moved inside synchronous process above for pipelining
 
 END a;
 
