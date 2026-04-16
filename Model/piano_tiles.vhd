@@ -143,9 +143,11 @@ ARCHITECTURE rtl OF note_stage IS
 	-- counts game ticks between note shifts
 	SIGNAL tick_count : INTEGER RANGE 0 TO NOTE_HEIGHT := 0;
 
+	CONSTANT INITIAL_SCORE : INTEGER := 35;
+	
 	-- score register and running maximum
-	SIGNAL score_signal : INTEGER := 25;
-	SIGNAL max_score_sig : INTEGER := 25;
+	SIGNAL score_signal : INTEGER := INITIAL_SCORE;
+	SIGNAL max_score_sig : INTEGER := 0;
 
 	-- combo counters: current streak and session best
 	SIGNAL combo_sig      : INTEGER := 0;
@@ -236,9 +238,9 @@ BEGIN
 
 			IF reset_game = '1' THEN
 				-- Reset all counters and trackers on game reset
-				score_signal <= 25;
+				score_signal <= INITIAL_SCORE;
 				tick_count <= 0;	
-				button_pressed_sig <= (OTHERS => '0');
+				button_pressed_sig <= buttons;
 				total_game_ticks <= 0;
 				combo_sig      <= 0;
 				best_combo_sig <= 0;
