@@ -15,7 +15,7 @@ package game_pkg is
     -- Lane geometry
     -- -------------------------------------------------------------------------
     constant LANE_COUNT    : integer := 4;
-    constant LANE_WIDTH    : integer := 128; -- originally 60. Shift to power of 2 allows O(1) instantaneous tile offsets. 
+    constant LANE_WIDTH    : integer := 64; -- Refined from 128. Retains O(1) power-of-two shift optimization while keeping authentic piano key aesthetics. 
 
     -- -------------------------------------------------------------------------
     -- Note grid dimensions
