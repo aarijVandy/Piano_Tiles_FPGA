@@ -258,19 +258,20 @@ BEGIN
 
 						IF notes_matrix_sig(i)(NOTE_COUNT - 1) = '1' AND hit_matrix_sig(i)(NOTE_COUNT - 1) = '0' THEN
 							-- Correct hit: note is in the absolute bottom zone
-							-- Score bonus rewards accuracy (hitting when tile is perfectly centered over the hit bar)
+							-- Score bonus rewards accuracy (hitting when tile is perfectly centered) + combo multiplier
 							IF tick_count <= (NOTE_HEIGHT / 2) THEN
-								score_next := score_next + NOTE_HEIGHT - ((NOTE_HEIGHT / 2) - tick_count);
+								score_next := score_next + NOTE_HEIGHT - ((NOTE_HEIGHT / 2) - tick_count) + (combo_sig / 4);
 							ELSE
-								score_next := score_next + NOTE_HEIGHT - (tick_count - (NOTE_HEIGHT / 2));
+								score_next := score_next + NOTE_HEIGHT - (tick_count - (NOTE_HEIGHT / 2)) + (combo_sig / 4);
 							END IF;
 							
 							mark_hit_sig(i) <= '1';
 							tile_hit_this_cycle(i) := '1';
 							combo_next := combo_next + 1; -- extend the streak
 						ELSE
-							-- Wrong press: no unhit note in valid zones
-							score_next := score_next - current_penalty;
+							-- Wrong press: apply escalating penalty and break streak
+							current_penalty <= 10 + (total_game_ticks / 256);
+							score_next := score_next - (10 + (total_game_ticks / 256));
 							combo_next := 0;              -- break the streak
 						END IF;
 					END IF;
@@ -295,7 +296,8 @@ BEGIN
 					FOR i IN 0 TO LANE_COUNT - 1 LOOP
 						IF notes_matrix_sig(i)(NOTE_COUNT - 1) = '1' THEN
 							IF hit_matrix_sig(i)(NOTE_COUNT - 1) = '0' AND tile_hit_this_cycle(i) = '0' THEN
-								score_next := score_next - missed_penalty;
+								missed_penalty <= 10 + (total_game_ticks / 256);
+								score_next := score_next - (10 + (total_game_ticks / 256));
 								combo_next := 0; -- break the streak on a miss
 							END IF;
 						END IF;
