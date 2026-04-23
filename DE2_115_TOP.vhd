@@ -93,7 +93,26 @@ ENTITY DE2_115_TOP IS
 		AUD_BCLK : INOUT STD_LOGIC; -- Bit-Stream Clock
 		AUD_DACDAT : OUT STD_LOGIC; -- DAC Data
 		AUD_DACLRCK : INOUT STD_LOGIC; -- DAC LR Clock
-		AUD_XCK : OUT STD_LOGIC -- Chip Clock
+		AUD_XCK : OUT STD_LOGIC; -- Chip Clock
+
+		-- I2C for audio codec config
+
+		I2C_SCLK : OUT STD_LOGIC;
+		I2C_SDAT : INOUT STD_LOGIC;
+
+		-- SDRAM (two 8M x 16 x 4-bank chips share command/address bus;
+		-- chip 0 is DQ[15:0], chip 1 is DQ[31:16])
+
+		DRAM_CLK   : OUT STD_LOGIC;
+		DRAM_CKE   : OUT STD_LOGIC;
+		DRAM_CS_N  : OUT STD_LOGIC;
+		DRAM_RAS_N : OUT STD_LOGIC;
+		DRAM_CAS_N : OUT STD_LOGIC;
+		DRAM_WE_N  : OUT STD_LOGIC;
+		DRAM_BA    : OUT STD_LOGIC_VECTOR(1 DOWNTO 0);
+		DRAM_ADDR  : OUT STD_LOGIC_VECTOR(12 DOWNTO 0);
+		DRAM_DQM   : OUT STD_LOGIC_VECTOR(3 DOWNTO 0);
+		DRAM_DQ    : INOUT STD_LOGIC_VECTOR(31 DOWNTO 0)
 
 	);
 
@@ -245,6 +264,9 @@ ARCHITECTURE structural OF DE2_115_TOP IS
 	SIGNAL menu_g : STD_LOGIC_VECTOR(7 DOWNTO 0);
 	SIGNAL menu_b : STD_LOGIC_VECTOR(7 DOWNTO 0);
 
+	-- Audio gate: '1' while game_state = PLAYING
+	SIGNAL playing_sig : STD_LOGIC;
+
 BEGIN
 
 	-- Use vertical sync as the game tick so game logic updates once per frame,
@@ -379,7 +401,41 @@ BEGIN
 	LCD_EN     <= '0';
 	LCD_RS     <= '0';
 	LCD_RW     <= '1';
-	AUD_XCK    <= '0';
+
+	-- -------------------------------------------------------------------------
+	-- Audio pipeline: WAV stored in SDRAM, played back through the WM8731
+	-- whenever the game is in the PLAYING state. Menu = silence.
+	-- -------------------------------------------------------------------------
+	playing_sig <= '1' WHEN game_state = PLAYING ELSE '0';
+
+	-- Audio resets only at power-up (via VHDL signal init values). The
+	-- game-reset button is NOT wired here: re-initializing the SDRAM
+	-- would drop the loaded song. MENU/PLAYING transitions handle
+	-- start/stop and rewind through the `playing` gate.
+	audio_inst : ENTITY work.audio_top
+		PORT MAP(
+			clk_50      => CLOCK_50,
+			reset       => '0',
+			playing     => playing_sig,
+
+			aud_xck     => AUD_XCK,
+			aud_bclk    => AUD_BCLK,
+			aud_daclrck => AUD_DACLRCK,
+			aud_dacdat  => AUD_DACDAT,
+			i2c_sclk    => I2C_SCLK,
+			i2c_sdat    => I2C_SDAT,
+
+			dram_clk    => DRAM_CLK,
+			dram_cke    => DRAM_CKE,
+			dram_cs_n   => DRAM_CS_N,
+			dram_ras_n  => DRAM_RAS_N,
+			dram_cas_n  => DRAM_CAS_N,
+			dram_we_n   => DRAM_WE_N,
+			dram_ba     => DRAM_BA,
+			dram_addr   => DRAM_ADDR,
+			dram_dqm    => DRAM_DQM,
+			dram_dq     => DRAM_DQ
+		);
 
 	-- -------------------------------------------------------------------------
 	-- VGA sync module
